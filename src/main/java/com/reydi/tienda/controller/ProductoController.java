@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -62,6 +63,29 @@ public class ProductoController {
         }
     }
 
+    // =========================================================
+    // ✅ LISTAR PRODUCTOS EN OFERTA (NUEVO ENDPOINT)
+    // =========================================================
+
+    /**
+     * Lista productos que actualmente están en oferta.
+     * Filtra productos con descuento activo y dentro del rango de fechas.
+     *
+     * @return Lista de productos en oferta
+     */
+    @GetMapping("/en-oferta")
+    public ResponseEntity<?> listarEnOferta() {
+        try {
+            List<Producto> productos = productoService.listarEnOferta();
+            List<ProductoDTO> dtos = productos.stream()
+                    .map(this::convertirADTO)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(dtos);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error al cargar productos en oferta", "message", e.getMessage()));
+        }
+    }
 
     @GetMapping("/{id}")
     public ResponseEntity<ProductoDTO> buscarPorId(@PathVariable Integer id) {
@@ -175,6 +199,15 @@ public class ProductoController {
             producto.setStockMinimo(request.getStockMinimo() != null ? request.getStockMinimo() : 5);
             producto.setActivo(request.getActivo() != null ? request.getActivo() : true);
 
+            producto.setCategoria(request.getCategoria() != null && !request.getCategoria().isEmpty()
+                    ? request.getCategoria()
+                    : "otros");
+
+            // ✅ CAMPOS DE DESCUENTO
+            producto.setPorcentajeDescuento(request.getPorcentajeDescuento() != null ? request.getPorcentajeDescuento() : 0);
+            producto.setDescuentoActivo(request.getDescuentoActivo() != null ? request.getDescuentoActivo() : false);
+            producto.setFechaInicioDescuento(request.getFechaInicioDescuento());
+            producto.setFechaFinDescuento(request.getFechaFinDescuento());
             Producto nuevo = productoService.guardar(producto);
 
             if (nuevo == null || nuevo.getId() == null) {
@@ -277,6 +310,25 @@ public class ProductoController {
             productoExistente.setPrecio(request.getPrecio());
             productoExistente.setStockMinimo(request.getStockMinimo() != null ? request.getStockMinimo() : 5);
             productoExistente.setActivo(request.getActivo() != null ? request.getActivo() : true);
+
+            productoExistente.setCategoria(request.getCategoria() != null && !request.getCategoria().isEmpty()
+                    ? request.getCategoria()
+                    : "otros");
+            // AGREGAR CAMPOS DE DESCUENTO
+            productoExistente.setPorcentajeDescuento(request.getPorcentajeDescuento() != null ? request.getPorcentajeDescuento() : 0);
+            productoExistente.setDescuentoActivo(request.getDescuentoActivo() != null ? request.getDescuentoActivo() : false);
+            productoExistente.setFechaInicioDescuento(request.getFechaInicioDescuento());
+            productoExistente.setFechaFinDescuento(request.getFechaFinDescuento());
+
+            // Calcular precio con descuento automáticamente
+            if (productoExistente.getDescuentoActivo() && productoExistente.getPorcentajeDescuento() != null && productoExistente.getPorcentajeDescuento() > 0) {
+                BigDecimal descuento = productoExistente.getPrecio()
+                        .multiply(BigDecimal.valueOf(productoExistente.getPorcentajeDescuento()))
+                        .divide(BigDecimal.valueOf(100), 2, java.math.RoundingMode.HALF_UP);
+                productoExistente.setPrecioDescuento(productoExistente.getPrecio().subtract(descuento));
+            } else {
+                productoExistente.setPrecioDescuento(BigDecimal.ZERO);
+            }
 
             Producto actualizado = productoService.actualizar(productoExistente);
 
@@ -527,8 +579,16 @@ public class ProductoController {
         dto.setPrecio(producto.getPrecio());
         dto.setStockMinimo(producto.getStockMinimo());
         dto.setActivo(producto.getActivo());
+        dto.setCategoria(producto.getCategoria());
         dto.setCreatedAt(producto.getCreatedAt());
         dto.setUpdatedAt(producto.getUpdatedAt());
+
+        dto.setPorcentajeDescuento(producto.getPorcentajeDescuento());
+        dto.setPrecioDescuento(producto.getPrecioDescuento());
+        dto.setDescuentoActivo(producto.getDescuentoActivo());
+        dto.setFechaInicioDescuento(producto.getFechaInicioDescuento());
+        dto.setFechaFinDescuento(producto.getFechaFinDescuento());
+        dto.setPrecioActual(producto.getPrecioActual());
 
         if (producto.getStock() != null) {
             dto.setStock(producto.getStock().getCantidad());

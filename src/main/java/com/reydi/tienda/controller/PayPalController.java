@@ -38,7 +38,7 @@ public class PayPalController {
     @Value("${paypal.mode}")
     private String paypalMode;
 
-    private static final String PAYPAL_API_BASE = "https://api-m.sandbox.paypal.com"; // Para sandbox
+    private static final String PAYPAL_API_BASE = "https://sandbox.paypal.com"; // Para sandbox
 
     /**
      * Crear orden en PayPal

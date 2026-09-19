@@ -4,11 +4,14 @@ import com.reydi.tienda.model.Producto;
 import com.reydi.tienda.model.Stock;
 import com.reydi.tienda.repository.ProductoRepository;
 import com.reydi.tienda.repository.StockRepository;
+import com.reydi.tienda.service.NotificacionService;
+import com.reydi.tienda.service.NotificationRecipientResolver;
 import com.reydi.tienda.service.ProductoService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,6 +21,8 @@ public class ProductoServiceImpl implements ProductoService {
 
     private final ProductoRepository productoRepository;
     private final StockRepository stockRepository;
+    private final NotificacionService notificacionService;
+    private final NotificationRecipientResolver recipientResolver;
 
     @Override
     @Transactional(readOnly = true)
@@ -77,6 +82,12 @@ public class ProductoServiceImpl implements ProductoService {
         stock.setProducto(saved);
         stock.setCantidad(0);
         stockRepository.save(stock);
+        // ✅ Notificar
+        notificacionService.crearNotificacion(
+                recipientResolver.adminId(),
+                "PRODUCTO",
+                "🆕 Producto creado: " + saved.getNombre()
+        );
 
         return saved;
     }
@@ -91,7 +102,16 @@ public class ProductoServiceImpl implements ProductoService {
         if (!productoRepository.existsById(producto.getId())) {
             throw new RuntimeException("Producto no encontrado con ID: " + producto.getId());
         }
-        return productoRepository.save(producto);
+        Producto saved = productoRepository.save(producto);
+
+// ✅ Notificar edición
+        notificacionService.crearNotificacion(
+                recipientResolver.adminId(),
+                "PRODUCTO",
+                "✏️ Producto editado: " + saved.getNombre()
+        );
+
+        return saved;
     }
 
     /**
@@ -105,5 +125,33 @@ public class ProductoServiceImpl implements ProductoService {
             throw new RuntimeException("Producto no encontrado con ID: " + id);
         }
         productoRepository.deleteById(id);
+        // ✅ Notificar eliminación
+        /**notificacionService.crearNotificacion(
+                recipientResolver.adminId(),
+                "PRODUCTO",
+                "🗑️ Producto eliminado: " + p.getNombre()
+        );*/
     }
+    // =========================================================
+    // ✅ NUEVO MÉTODO PARA DESCUENTOS
+    // =========================================================
+
+    /**
+     * Lista productos en oferta (descuento activo y vigente).
+     * Filtra productos donde:
+     * - descuentoActivo = true
+     * - porcentajeDescuento > 0
+     * - fecha actual está entre fechaInicioDescuento y fechaFinDescuento
+     *
+     * @return Lista de productos en oferta
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<Producto> listarEnOferta() {
+        LocalDate hoy = LocalDate.now();
+        return productoRepository.findByDescuentoActivoTrueAndFechaInicioDescuentoLessThanEqualAndFechaFinDescuentoGreaterThanEqual(
+                hoy, hoy
+        );
+    }
+
 }

@@ -4,6 +4,7 @@ import com.reydi.tienda.model.Pago;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @Data
 public class PedidoRequestDTO {
@@ -15,6 +16,13 @@ public class PedidoRequestDTO {
     private String emailComprobante;
     private List<DetallePedidoRequestDTO> productos;
 
+
+
+    // ✅ AGREGAR ESTOS CAMPOS (son los que envía el frontend)
+    private String clienteEmail;           // ← Correo del cliente registrado
+    private Map<String, Object> paypalData; // ← Datos de PayPal
+    private BigDecimal montoUSD;            // ← Monto en dólares
+    private BigDecimal montoPEN;            // ← Monto en soles
 
 
     @Data

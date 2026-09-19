@@ -1,5 +1,7 @@
 package com.reydi.tienda.model;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonValue;
 import jakarta.persistence.*;
 import lombok.*;
 import java.math.BigDecimal;
@@ -39,9 +41,56 @@ public class Pago {
     @Column(name = "fecha", updatable = false)
     private LocalDateTime fecha;
 
-    // Enumeraciones
+    // ✅ ENUM MODIFICADO CON @JsonCreator y @JsonValue
     public enum MetodoPago {
-        TARJETA, YAPE, PLIN, TRANSFERENCIA, EFECTIVO,PAYPAL
+        TARJETA("TARJETA"),
+        YAPE("YAPE"),
+        PLIN("PLIN"),
+        TRANSFERENCIA("TRANSFERENCIA"),
+        EFECTIVO("EFECTIVO"),
+        PAYPAL("PAYPAL");
+
+        private final String value;
+
+        MetodoPago(String value) {
+            this.value = value;
+        }
+
+        @JsonValue
+        public String getValue() {
+            return value;
+        }
+
+        @JsonCreator
+        public static MetodoPago fromString(String value) {
+            if (value == null) return null;
+
+            // Buscar por el valor (ej: "PAYPAL" -> PAYPAL)
+            for (MetodoPago metodo : MetodoPago.values()) {
+                if (metodo.value.equalsIgnoreCase(value)) {
+                    return metodo;
+                }
+            }
+
+            // Si no encuentra, intentar por el nombre del ENUM
+            try {
+                return MetodoPago.valueOf(value.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                // Si no encuentra, lanzar excepción con mensaje claro
+                throw new IllegalArgumentException("Método de pago inválido: " + value +
+                        ". Valores válidos: " + String.join(", ", getValidValues()));
+            }
+        }
+
+        // Método auxiliar para mostrar valores válidos
+        public static String[] getValidValues() {
+            MetodoPago[] values = MetodoPago.values();
+            String[] validValues = new String[values.length];
+            for (int i = 0; i < values.length; i++) {
+                validValues[i] = values[i].value;
+            }
+            return validValues;
+        }
     }
 
     public enum EstadoPago {

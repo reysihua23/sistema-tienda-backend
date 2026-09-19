@@ -1,17 +1,33 @@
 package com.reydi.tienda.service;
 
+import com.reydi.tienda.dto.NotificacionDTO;
 import com.reydi.tienda.model.Notificacion;
+
 import java.util.List;
-import java.util.Optional;
 
 public interface NotificacionService {
-    List<Notificacion> listarTodos();
-    Optional<Notificacion> buscarPorId(Integer id);
-    List<Notificacion> listarNoLeidas();
-    List<Notificacion> listarPorTipo(String tipo);
-    Notificacion guardar(Notificacion notificacion);
-    Notificacion actualizar(Notificacion notificacion);
-    void eliminar(Integer id);
-    void marcarComoLeida(Integer id);
-    void marcarTodasComoLeidas();
+
+    // ✅ Por usuario
+    List<NotificacionDTO> obtenerPorUsuario(Integer usuarioId);
+    List<NotificacionDTO> obtenerNoLeidasPorUsuario(Integer usuarioId);
+    Long contarNoLeidasPorUsuario(Integer usuarioId);
+    boolean marcarComoLeida(Integer notificacionId, Integer usuarioId);
+    int marcarTodasComoLeidas(Integer usuarioId);
+    boolean eliminarNotificacion(Integer notificacionId, Integer usuarioId);
+    void eliminarTodas(Integer usuarioId);
+
+    // ✅ Crear (único método, con usuarioId)
+    NotificacionDTO crearNotificacion(Integer usuarioId, String tipo, String mensaje);
+
+    // ✅ Admin
+    List<NotificacionDTO> obtenerTodas();
+    List<NotificacionDTO> obtenerNoLeidas();
+    Long contarNoLeidas();
+    boolean marcarComoLeida(Integer id);
+    int marcarTodasComoLeidas();
+    boolean eliminarNotificacion(Integer id);
+    void eliminarTodas();
+
+    // ✅ Conversión
+    NotificacionDTO convertirADTO(Notificacion notificacion);
 }

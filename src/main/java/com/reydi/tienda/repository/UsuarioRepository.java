@@ -1,5 +1,6 @@
 package com.reydi.tienda.repository;
 
+import com.reydi.tienda.model.TipoRol;
 import com.reydi.tienda.model.Usuario;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -10,6 +11,7 @@ import java.util.Optional;
 
 public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
 
+    // para recuperar contraseña
     Optional<Usuario> findByCorreo(String correo);
 
     List<Usuario> findByActivo(Boolean activo);
@@ -17,6 +19,12 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
     List<Usuario> findByRolId(Integer rolId);
 
     boolean existsByCorreo(String correo);
+
+    @Query("SELECT u FROM Usuario u WHERE u.cliente.id = :clienteId")
+    Optional<Usuario> findByClienteId(@Param("clienteId") Integer clienteId);
+    // dentro de la interfaz:
+    @Query("SELECT u FROM Usuario u WHERE u.rol.nombre = :rol")
+    List<Usuario> findByRolNombre(@Param("rol") TipoRol rol);
 
     @Query("SELECT u FROM Usuario u WHERE " +
             "(:correo IS NULL OR LOWER(u.correo) LIKE LOWER(CONCAT('%', :correo, '%'))) AND " +

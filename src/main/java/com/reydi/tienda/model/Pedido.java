@@ -16,24 +16,24 @@ public class Pedido {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_pedido")
+    @Column(name = "id_pedido", nullable = false, updatable = false)
     private Integer id;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cliente_id", nullable = false)
     private Cliente cliente;
 
-    @Column(precision = 10, scale = 2)
+    @Column(name = "total", precision = 10, scale = 2)
     private BigDecimal total;
 
     @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @Column(name = "estado", nullable = false)
     private EstadoPedido estado;
 
     @Column(name = "fecha", updatable = false)
     private LocalDateTime fecha;
 
-    @Column(name = "metodo_pago")
+    @Column(name = "metodo_pago", length = 50)
     private String metodoPago;
 
     @Enumerated(EnumType.STRING)
@@ -46,8 +46,6 @@ public class Pedido {
     @OneToOne(mappedBy = "pedido", cascade = CascadeType.ALL)
     private Pago pago;
 
-
-    // AGREGAR RELACIÓN CON ENVÍO
     @OneToOne(mappedBy = "pedido", cascade = CascadeType.ALL)
     private Envio envio;
 
@@ -64,7 +62,6 @@ public class Pedido {
         }
     }
 
-    // Método para calcular total desde los detalles
     public BigDecimal calcularTotalDesdeDetalles() {
         if (detalles == null || detalles.isEmpty()) {
             return BigDecimal.ZERO;
@@ -74,7 +71,6 @@ public class Pedido {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    // Método para actualizar el total basado en los detalles
     public void actualizarTotal() {
         this.total = calcularTotalDesdeDetalles();
     }

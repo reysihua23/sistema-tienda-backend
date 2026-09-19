@@ -10,6 +10,7 @@ import com.reydi.tienda.model.TipoRol;
 import com.reydi.tienda.model.Usuario;
 import com.reydi.tienda.security.JwtUtil;
 import com.reydi.tienda.service.ClienteService;
+import com.reydi.tienda.service.PasswordResetService;
 import com.reydi.tienda.service.RolService;
 import com.reydi.tienda.service.UsuarioService;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,9 @@ public class AuthController {
     private final RolService rolService;
     private final ClienteService clienteService;
     private final JwtUtil jwtUtil;
+
+    // Para recuperar contraseña
+    private final PasswordResetService passwordResetService;
 
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest request) {
@@ -196,6 +200,44 @@ public class AuthController {
 
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    //===========================================
+    // PARA RECUPERAR CONTRASEÑA DEL USUARIO
+    //===========================================
+    @PostMapping("/forgot-password")
+    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> body) {
+        String correo = body.get("correo");
+        if (correo == null || correo.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Correo requerido"));
+        }
+
+        try {
+            passwordResetService.solicitarRecuperacion(correo);
+            return ResponseEntity.ok(Map.of(
+                    "message", "Si el correo está registrado, recibirás un enlace de recuperación."
+            ));
+        } catch (RuntimeException e) {
+            // ✅ Capturar rate limit u otros errores
+            return ResponseEntity.status(429).body(Map.of("error", e.getMessage()));
+        }
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<?> resetPassword(@RequestBody Map<String, String> body) {
+        String token = body.get("token");
+        String nuevaPassword = body.get("nuevaPassword");
+
+        if (token == null || nuevaPassword == null) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Token y contraseña requeridos"));
+        }
+
+        try {
+            passwordResetService.restablecerPassword(token, nuevaPassword);
+            return ResponseEntity.ok(Map.of("message", "Contraseña actualizada correctamente"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 }

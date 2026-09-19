@@ -27,6 +27,15 @@ public class Reclamo {
     @Column(name = "estado")
     private EstadoReclamo estado;
 
+    /**
+     * ⚠️ Un detalle importante sobre Reclamo.fecha
+     * java
+     * @Column(name = "fecha", insertable = false, updatable = false)
+     * private LocalDateTime fecha;
+     * fecha no se inserta desde Java (por insertable = false), lo maneja la BD
+     * (probablemente con DEFAULT CURRENT_TIMESTAMP). Eso no afecta al flujo de
+     * notificaciones, solo tenlo presente.
+     * */
     @Column(name = "fecha", insertable = false, updatable = false)
     private LocalDateTime fecha;
 

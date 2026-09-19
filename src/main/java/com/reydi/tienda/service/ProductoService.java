@@ -58,4 +58,15 @@ ProductoService {
      * También elimina su registro en la tabla stock (por CASCADE)
      */
     void eliminar(Integer id);
+
+    // =========================================================
+    // ✅ NUEVO MÉTODO PARA DESCUENTOS - AGREGAR ESTO
+    // =========================================================
+
+    /**
+     * Lista productos en oferta (con descuento activo y vigente)
+     *
+     * @return Lista de productos que actualmente están en oferta
+     */
+    List<Producto> listarEnOferta();
 }

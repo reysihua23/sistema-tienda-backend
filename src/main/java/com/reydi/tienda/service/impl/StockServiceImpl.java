@@ -2,6 +2,8 @@ package com.reydi.tienda.service.impl;
 
 import com.reydi.tienda.model.Stock;
 import com.reydi.tienda.repository.StockRepository;
+import com.reydi.tienda.service.NotificacionService;
+import com.reydi.tienda.service.NotificationRecipientResolver;
 import com.reydi.tienda.service.StockService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,10 @@ import java.util.Optional;
 public class StockServiceImpl implements StockService {
 
     private final StockRepository stockRepository;
+    private final NotificacionService notificacionService;
+    private final NotificationRecipientResolver recipientResolver;
+
+    private static final int UMBRAL_STOCK_BAJO = 5;
 
     @Override
     public List<Stock> listarTodos() {
@@ -43,7 +49,9 @@ public class StockServiceImpl implements StockService {
         if (stock.getFechaActualizacion() == null) {
             stock.setFechaActualizacion(LocalDateTime.now());
         }
-        return stockRepository.save(stock);
+        Stock saved = stockRepository.save(stock);
+        verificarYNotificarStockBajo(saved);
+        return saved;
     }
 
     @Override
@@ -55,12 +63,13 @@ public class StockServiceImpl implements StockService {
             throw new RuntimeException("Stock no encontrado con ID: " + stock.getId());
         }
 
-        // Asegurar que la relación con producto se mantiene
         Stock existente = stockRepository.findById(stock.getId()).get();
         stock.setProducto(existente.getProducto());
         stock.setFechaActualizacion(LocalDateTime.now());
 
-        return stockRepository.save(stock);
+        Stock saved = stockRepository.save(stock);
+        verificarYNotificarStockBajo(saved);
+        return saved;
     }
 
     @Override
@@ -84,7 +93,9 @@ public class StockServiceImpl implements StockService {
         System.out.println("Stock incrementado - Producto ID: " + productoId +
                 ", Nueva cantidad: " + stock.getCantidad());
 
-        return stockRepository.save(stock);
+        Stock saved = stockRepository.save(stock);
+        verificarYNotificarStockBajo(saved);
+        return saved;
     }
 
     @Override
@@ -104,7 +115,9 @@ public class StockServiceImpl implements StockService {
         System.out.println("Stock decrementado - Producto ID: " + productoId +
                 ", Nueva cantidad: " + stock.getCantidad());
 
-        return stockRepository.save(stock);
+        Stock saved = stockRepository.save(stock);
+        verificarYNotificarStockBajo(saved);
+        return saved;
     }
 
     @Override
@@ -129,10 +142,31 @@ public class StockServiceImpl implements StockService {
         stockRepository.save(stock);
 
         System.out.println("Stock actualizado - Nueva cantidad: " + nuevaCantidad);
+
+        verificarYNotificarStockBajo(stock);
     }
 
     @Override
     public boolean existeStockParaProducto(Integer productoId) {
         return stockRepository.existsByProductoId(productoId);
+    }
+
+    // =========================================================
+    // ✅ Helper: notifica si el stock queda por debajo del umbral
+    // =========================================================
+    private void verificarYNotificarStockBajo(Stock stock) {
+        if (stock == null || stock.getCantidad() == null) return;
+
+        if (stock.getCantidad() <= UMBRAL_STOCK_BAJO) {
+            String nombre = (stock.getProducto() != null && stock.getProducto().getNombre() != null)
+                    ? stock.getProducto().getNombre()
+                    : "Producto #" + (stock.getProducto() != null ? stock.getProducto().getId() : "?");
+
+            notificacionService.crearNotificacion(
+                    recipientResolver.adminId(),
+                    "STOCK",
+                    "⚠️ Stock bajo: " + nombre + " (" + stock.getCantidad() + " uds.)"
+            );
+        }
     }
 }

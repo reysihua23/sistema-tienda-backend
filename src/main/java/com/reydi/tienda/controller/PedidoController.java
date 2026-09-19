@@ -117,6 +117,16 @@ public class PedidoController {
     @PreAuthorize("hasAnyRole('ADMIN', 'VENTAS', 'CLIENTE')")
     public ResponseEntity<?> crearPedido(@RequestBody PedidoRequestDTO request, Authentication authentication) {
         try {
+            System.out.println("═══════════════════════════════════════");
+            System.out.println("📥 RECIBIENDO PEDIDO");
+            System.out.println("═══════════════════════════════════════");
+            System.out.println("📋 Datos recibidos:");
+            System.out.println("  - clienteId: " + request.getClienteId());
+            System.out.println("  - metodoPago: " + request.getMetodoPago());
+            System.out.println("  - metodoEnvio: " + request.getMetodoEnvio());
+            System.out.println("  - productos: " + request.getProductos());
+            System.out.println("───────────────────────────────────────");
+
             System.out.println("=== INICIANDO CREACIÓN DE PEDIDO COMPLETO ===");
             System.out.println("Cliente ID: " + request.getClienteId());
             System.out.println("Método Pago: " + request.getMetodoPago());

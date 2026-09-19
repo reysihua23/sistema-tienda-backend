@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -96,4 +97,55 @@ public interface ProductoRepository extends JpaRepository<Producto, Integer> {
      */
     @Query("SELECT COUNT(p) > 0 FROM Producto p WHERE LOWER(p.nombre) = LOWER(:nombre) AND LOWER(p.descripcion) = LOWER(:descripcion)")
     boolean existeProductoDuplicado(@Param("nombre") String nombre, @Param("descripcion") String descripcion);
+
+    // =========================================================
+    // ✅ NUEVOS MÉTODOS PARA DESCUENTOS
+    // =========================================================
+
+    /**
+     * Lista productos en oferta (descuento activo y dentro del rango de fechas).
+     *
+     * @param fechaInicio Fecha de inicio para comparar (hoy)
+     * @param fechaFin Fecha de fin para comparar (hoy)
+     * @return Lista de productos en oferta
+     */
+    @Query("SELECT p FROM Producto p LEFT JOIN FETCH p.stock WHERE " +
+            "p.descuentoActivo = true AND " +
+            "p.porcentajeDescuento > 0 AND " +
+            "p.fechaInicioDescuento IS NOT NULL AND " +
+            "p.fechaFinDescuento IS NOT NULL AND " +
+            "p.fechaInicioDescuento <= :fechaInicio AND " +
+            "p.fechaFinDescuento >= :fechaFin")
+    List<Producto> findByDescuentoActivoTrueAndFechaInicioDescuentoLessThanEqualAndFechaFinDescuentoGreaterThanEqual(
+            @Param("fechaInicio") LocalDate fechaInicio,
+            @Param("fechaFin") LocalDate fechaFin
+    );
+
+    /**
+     * Lista productos con descuento activo (sin importar fechas).
+     * Útil para el panel de administración.
+     */
+    @Query("SELECT p FROM Producto p LEFT JOIN FETCH p.stock WHERE p.descuentoActivo = true")
+    List<Producto> findByDescuentoActivoTrue();
+
+    /**
+     * Lista productos cuyo descuento ha expirado (fecha fin < hoy).
+     * Útil para desactivar descuentos vencidos automáticamente.
+     */
+    @Query("SELECT p FROM Producto p LEFT JOIN FETCH p.stock WHERE " +
+            "p.descuentoActivo = true AND " +
+            "p.fechaFinDescuento < :hoy")
+    List<Producto> findDescuentosExpirados(@Param("hoy") LocalDate hoy);
+
+    /**
+     * Lista productos cuyo descuento está próximo a expirar (en los próximos 3 días).
+     * Útil para enviar notificaciones.
+     */
+    @Query("SELECT p FROM Producto p LEFT JOIN FETCH p.stock WHERE " +
+            "p.descuentoActivo = true AND " +
+            "p.fechaFinDescuento BETWEEN :hoy AND :limite")
+    List<Producto> findDescuentosPorExpiracion(
+            @Param("hoy") LocalDate hoy,
+            @Param("limite") LocalDate limite
+    );
 }
