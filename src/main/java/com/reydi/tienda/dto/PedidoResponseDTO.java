@@ -1,6 +1,7 @@
 package com.reydi.tienda.dto;
 
 import com.reydi.tienda.model.EstadoPedido;
+import com.reydi.tienda.model.OrigenPedido;   // ✅ NUEVO import
 import com.reydi.tienda.model.Pago;
 import lombok.Data;
 import java.math.BigDecimal;
@@ -19,6 +20,7 @@ public class PedidoResponseDTO {
     private BigDecimal total;
     private Pago.MetodoPago metodoPago;
     private EstadoPedido estado;
+    private OrigenPedido origen;   // ✅ NUEVO CAMPO
     private LocalDateTime fecha;
     private List<DetallePedidoResponseDTO> detalles;
     private PagoResponseDTO pago;

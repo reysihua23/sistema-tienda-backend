@@ -313,6 +313,9 @@ public class UsuarioController {
             response.put("rol", usuario.getRol().getNombre().name());
 
             if (usuario.getCliente() != null) {
+                // ✅ AGREGAR EL clienteId
+                response.put("clienteId", usuario.getCliente().getId());
+
                 response.put("nombre", usuario.getCliente().getNombre());
                 response.put("telefono", usuario.getCliente().getTelefono());
                 response.put("documento", usuario.getCliente().getDocumento());

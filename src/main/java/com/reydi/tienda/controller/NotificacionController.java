@@ -145,6 +145,7 @@ public class NotificacionController {
             Integer usuarioId = (Integer) request.get("usuarioId");
             String tipo = (String) request.get("tipo");
             String mensaje = (String) request.get("mensaje");
+            Integer referenciaId = (Integer) request.get("referenciaId");
 
             if (usuarioId == null || tipo == null || mensaje == null) {
                 return ResponseEntity.badRequest().body(Map.of(
@@ -152,7 +153,7 @@ public class NotificacionController {
                 ));
             }
 
-            NotificacionDTO notificacion = notificacionService.crearNotificacion(usuarioId, tipo, mensaje);
+            NotificacionDTO notificacion = notificacionService.crearNotificacion(usuarioId, tipo, mensaje, referenciaId);
             return ResponseEntity.status(HttpStatus.CREATED).body(notificacion);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)

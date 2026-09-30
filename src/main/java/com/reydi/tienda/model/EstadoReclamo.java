@@ -5,5 +5,6 @@ public enum EstadoReclamo {
     EN_REVISION,
     APROBADO,
     RECHAZADO,
-    CERRADO
+    CERRADO,
+    CANCELADO
 }

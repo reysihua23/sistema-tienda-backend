@@ -154,18 +154,48 @@ public class StockServiceImpl implements StockService {
     // =========================================================
     // ✅ Helper: notifica si el stock queda por debajo del umbral
     // =========================================================
+    // =========================================================
+// ✅ Helper: notifica si el stock queda por debajo del umbral
+// =========================================================
     private void verificarYNotificarStockBajo(Stock stock) {
         if (stock == null || stock.getCantidad() == null) return;
 
         if (stock.getCantidad() <= UMBRAL_STOCK_BAJO) {
-            String nombre = (stock.getProducto() != null && stock.getProducto().getNombre() != null)
-                    ? stock.getProducto().getNombre()
-                    : "Producto #" + (stock.getProducto() != null ? stock.getProducto().getId() : "?");
+            // 🎯 Obtener el producto REAL (no el proxy lazy)
+            Integer productoId = null;
+            String nombre = null;
+
+            // 1️⃣ Intentar por el stock.getId() → buscar en BD
+            if (stock.getId() != null) {
+                Stock stockFromDb = stockRepository.findById(stock.getId()).orElse(null);
+                if (stockFromDb != null && stockFromDb.getProducto() != null) {
+                    productoId = stockFromDb.getProducto().getId();
+                    nombre = stockFromDb.getProducto().getNombre();
+                }
+            }
+
+            // 2️⃣ Fallback: si no se pudo obtener, intentar con el objeto en memoria
+            if (productoId == null || productoId == 0) {
+                if (stock.getProducto() != null && stock.getProducto().getId() != null
+                        && stock.getProducto().getId() != 0) {
+                    productoId = stock.getProducto().getId();
+                    nombre = stock.getProducto().getNombre();
+                }
+            }
+
+            // 3️⃣ Si aún no hay nombre, usar fallback
+            if (nombre == null) {
+                nombre = productoId != null ? "Producto #" + productoId : "Producto desconocido";
+            }
+
+            System.out.println("🔔 [StockService] Notificando stock bajo - Producto ID: "
+                    + productoId + ", Nombre: " + nombre);
 
             notificacionService.crearNotificacion(
                     recipientResolver.adminId(),
                     "STOCK",
-                    "⚠️ Stock bajo: " + nombre + " (" + stock.getCantidad() + " uds.)"
+                    "⚠️ Stock bajo: " + nombre + " (" + stock.getCantidad() + " uds.)",
+                    productoId   // 👈 ya no puede ser 0
             );
         }
     }

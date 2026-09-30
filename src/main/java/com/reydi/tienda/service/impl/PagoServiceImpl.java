@@ -4,7 +4,7 @@ import com.reydi.tienda.model.Pago;
 import com.reydi.tienda.model.Pago.EstadoPago;
 import com.reydi.tienda.model.Pago.MetodoPago;
 import com.reydi.tienda.repository.PagoRepository;
-import com.reydi.tienda.service.NotificacionService;
+import com.reydi.tienda.service.NotificacionHelper;
 import com.reydi.tienda.service.NotificationRecipientResolver;
 import com.reydi.tienda.service.PagoService;
 import lombok.RequiredArgsConstructor;
@@ -20,9 +20,12 @@ import java.util.Optional;
 public class PagoServiceImpl implements PagoService {
 
     private final PagoRepository pagoRepository;
-    private final NotificacionService notificacionService;
+    private final NotificacionHelper notificacionHelper;
     private final NotificationRecipientResolver recipientResolver;
 
+    // =========================================================
+    // ✅ CONSULTAS
+    // =========================================================
     @Override
     public List<Pago> listarTodos() {
         return pagoRepository.findAll();
@@ -60,6 +63,7 @@ public class PagoServiceImpl implements PagoService {
 
     // =========================================================
     // ✅ GUARDAR
+    // Regla: Cliente paga → notificar a ADMIN + VENTAS
     // =========================================================
     @Override
     @Transactional
@@ -72,32 +76,23 @@ public class PagoServiceImpl implements PagoService {
         }
         Pago saved = pagoRepository.save(pago);
 
-        // ✅ ADMIN
-        notificacionService.crearNotificacion(
-                recipientResolver.adminId(),
+        Integer pedidoId = saved.getPedido() != null ? saved.getPedido().getId() : null;
+
+        // ✅ Notificar a ADMIN + VENTAS (gestión debe validar el pago)
+        notificacionHelper.notificarA(
+                recipientResolver.idsAdminYVentas(),
                 "PAGO",
                 "💰 Pago #" + saved.getId() + " registrado" +
-                        (saved.getPedido() != null ? " (Pedido #" + saved.getPedido().getId() + ")" : "")
+                        (saved.getPedido() != null ? " (Pedido #" + saved.getPedido().getId() + ")" : ""),
+                pedidoId
         );
-
-        // ✅ CLIENTE
-        if (saved.getPedido() != null && saved.getPedido().getCliente() != null) {
-            Integer clienteUsuarioId =
-                    recipientResolver.clienteUsuarioIdOrNull(saved.getPedido().getCliente());
-            if (clienteUsuarioId != null) {
-                notificacionService.crearNotificacion(
-                        clienteUsuarioId,
-                        "PAGO",
-                        "💰 Tu pago #" + saved.getId() + " fue registrado"
-                );
-            }
-        }
 
         return saved;
     }
 
     // =========================================================
     // ✅ ACTUALIZAR
+    // Regla: Admin/Vendedor actualiza → notificar al CLIENTE dueño
     // =========================================================
     @Override
     @Transactional
@@ -107,24 +102,18 @@ public class PagoServiceImpl implements PagoService {
         }
         Pago saved = pagoRepository.save(pago);
 
-        // ✅ ADMIN
-        notificacionService.crearNotificacion(
-                recipientResolver.adminId(),
-                "PAGO",
-                "✏️ Pago #" + saved.getId() + " actualizado"
-        );
+        Integer pedidoId = saved.getPedido() != null ? saved.getPedido().getId() : null;
 
-        // ✅ CLIENTE
+        // ✅ Notificar al CLIENTE dueño del pedido
         if (saved.getPedido() != null && saved.getPedido().getCliente() != null) {
             Integer clienteUsuarioId =
                     recipientResolver.clienteUsuarioIdOrNull(saved.getPedido().getCliente());
-            if (clienteUsuarioId != null) {
-                notificacionService.crearNotificacion(
-                        clienteUsuarioId,
-                        "PAGO",
-                        "✏️ Tu pago #" + saved.getId() + " fue actualizado"
-                );
-            }
+            notificacionHelper.notificarA(
+                    clienteUsuarioId,
+                    "PAGO",
+                    "✏️ Tu pago #" + saved.getId() + " fue actualizado",
+                    pedidoId
+            );
         }
 
         return saved;
@@ -132,6 +121,7 @@ public class PagoServiceImpl implements PagoService {
 
     // =========================================================
     // ✅ ELIMINAR
+    // Regla: Admin/Vendedor elimina → notificar al CLIENTE dueño
     // =========================================================
     @Override
     @Transactional
@@ -140,27 +130,24 @@ public class PagoServiceImpl implements PagoService {
                 .orElseThrow(() -> new RuntimeException("Pago no encontrado"));
         pagoRepository.deleteById(id);
 
-        notificacionService.crearNotificacion(
-                recipientResolver.adminId(),
-                "PAGO",
-                "🗑️ Pago eliminado #" + id
-        );
+        Integer pedidoId = pago.getPedido() != null ? pago.getPedido().getId() : null;
 
+        // ✅ Notificar al CLIENTE dueño
         if (pago.getPedido() != null && pago.getPedido().getCliente() != null) {
             Integer clienteUsuarioId =
                     recipientResolver.clienteUsuarioIdOrNull(pago.getPedido().getCliente());
-            if (clienteUsuarioId != null) {
-                notificacionService.crearNotificacion(
-                        clienteUsuarioId,
-                        "PAGO",
-                        "🗑️ Tu pago #" + id + " fue eliminado"
-                );
-            }
+            notificacionHelper.notificarA(
+                    clienteUsuarioId,
+                    "PAGO",
+                    "🗑️ Tu pago #" + id + " fue eliminado",
+                    pedidoId
+            );
         }
     }
 
     // =========================================================
     // ✅ APROBAR
+    // Regla: Admin aprueba → notificar al CLIENTE dueño
     // =========================================================
     @Override
     @Transactional
@@ -170,24 +157,18 @@ public class PagoServiceImpl implements PagoService {
         pago.setEstado(EstadoPago.APROBADO);
         Pago saved = pagoRepository.save(pago);
 
-        // ✅ ADMIN
-        notificacionService.crearNotificacion(
-                recipientResolver.adminId(),
-                "PAGO",
-                "✅ Pago #" + id + " APROBADO"
-        );
+        Integer pedidoId = saved.getPedido() != null ? saved.getPedido().getId() : null;
 
-        // ✅ CLIENTE
+        // ✅ Notificar al CLIENTE dueño del pedido
         if (saved.getPedido() != null && saved.getPedido().getCliente() != null) {
             Integer clienteUsuarioId =
                     recipientResolver.clienteUsuarioIdOrNull(saved.getPedido().getCliente());
-            if (clienteUsuarioId != null) {
-                notificacionService.crearNotificacion(
-                        clienteUsuarioId,
-                        "PAGO",
-                        "✅ Tu pago #" + id + " fue APROBADO"
-                );
-            }
+            notificacionHelper.notificarA(
+                    clienteUsuarioId,
+                    "PAGO",
+                    "✅ Tu pago #" + id + " fue APROBADO",
+                    pedidoId
+            );
         }
 
         return saved;
@@ -195,6 +176,7 @@ public class PagoServiceImpl implements PagoService {
 
     // =========================================================
     // ✅ RECHAZAR
+    // Regla: Admin rechaza → notificar al CLIENTE dueño
     // =========================================================
     @Override
     @Transactional
@@ -204,24 +186,18 @@ public class PagoServiceImpl implements PagoService {
         pago.setEstado(EstadoPago.RECHAZADO);
         Pago saved = pagoRepository.save(pago);
 
-        // ✅ ADMIN
-        notificacionService.crearNotificacion(
-                recipientResolver.adminId(),
-                "PAGO",
-                "❌ Pago #" + id + " RECHAZADO"
-        );
+        Integer pedidoId = saved.getPedido() != null ? saved.getPedido().getId() : null;
 
-        // ✅ CLIENTE
+        // ✅ Notificar al CLIENTE dueño del pedido
         if (saved.getPedido() != null && saved.getPedido().getCliente() != null) {
             Integer clienteUsuarioId =
                     recipientResolver.clienteUsuarioIdOrNull(saved.getPedido().getCliente());
-            if (clienteUsuarioId != null) {
-                notificacionService.crearNotificacion(
-                        clienteUsuarioId,
-                        "PAGO",
-                        "❌ Tu pago #" + id + " fue RECHAZADO"
-                );
-            }
+            notificacionHelper.notificarA(
+                    clienteUsuarioId,
+                    "PAGO",
+                    "❌ Tu pago #" + id + " fue RECHAZADO",
+                    pedidoId
+            );
         }
 
         return saved;

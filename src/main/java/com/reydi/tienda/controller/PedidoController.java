@@ -204,16 +204,25 @@ public class PedidoController {
             pedido.setTotal(total);
             pedido.setFecha(LocalDateTime.now());
 
+            String emailUsuario = authentication.getName();
+            Usuario usuario = usuarioService.buscarPorCorreo(emailUsuario)
+                    .orElseThrow(() -> new RuntimeException("Usuario autenticado no encontrado"));
+
             // DETERMINAR ORIGEN Y ESTADO
+            // ✅ Determinar origen según el ROL del usuario
             OrigenPedido origen;
-            if (request.getOrigen() != null) {
+            String rolActual = usuario.getRol().getNombre().name();
+
+            if ("CLIENTE".equals(rolActual)) {
+                // Cliente = SIEMPRE compra online
+                origen = OrigenPedido.TIENDA_ONLINE;
+            } else if ("VENTAS".equals(rolActual) || "ADMIN".equals(rolActual)) {
+                // Vendedor/Admin = venta presencial
+                origen = OrigenPedido.TIENDA_FISICA;
+            } else if (request.getOrigen() != null) {
                 origen = OrigenPedido.valueOf(request.getOrigen());
             } else {
-                if (request.getMetodoEnvio() != null && !request.getMetodoEnvio().equals("RECOJO_EN_TIENDA")) {
-                    origen = OrigenPedido.TIENDA_ONLINE;
-                } else {
-                    origen = OrigenPedido.TIENDA_FISICA;
-                }
+                origen = OrigenPedido.TIENDA_ONLINE;
             }
             pedido.setOrigen(origen);
 
@@ -463,6 +472,7 @@ public class PedidoController {
             envioDTO.setDireccion(pedido.getEnvio().getDireccion());
             envioDTO.setCostoEnvio(pedido.getEnvio().getCostoEnvio());
             envioDTO.setEstado(pedido.getEnvio().getEstado());
+            dto.setOrigen(pedido.getOrigen());
             envioDTO.setFechaEnvio(pedido.getEnvio().getFechaEnvio());
             envioDTO.setFechaEntrega(pedido.getEnvio().getFechaEntrega());
             envioDTO.setCodigoSeguimiento(pedido.getEnvio().getCodigoSeguimiento());

@@ -6,6 +6,7 @@ import com.reydi.tienda.model.TipoReclamo;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
+
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -16,6 +17,11 @@ public interface ReclamoRepository extends JpaRepository<Reclamo, Integer> {
     List<Reclamo> findByEstado(EstadoReclamo estado);
 
     List<Reclamo> findByTipo(TipoReclamo tipo);
+
+    // ✅ NUEVOS: reclamos por pedido
+    List<Reclamo> findByPedidoId(Integer pedidoId);
+
+    boolean existsByPedidoId(Integer pedidoId);
 
     @Query("SELECT r FROM Reclamo r WHERE " +
             "(:estado IS NULL OR r.estado = :estado) AND " +

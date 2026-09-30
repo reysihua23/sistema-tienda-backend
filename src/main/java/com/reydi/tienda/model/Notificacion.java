@@ -29,6 +29,19 @@ public class Notificacion {
     @Column(name = "mensaje", length = 255)
     private String mensaje;
 
+    // 👇 NUEVO
+    /**
+     * ID del recurso asociado. El significado depende de {@link #tipo}:
+     *   STOCK, PRODUCTO     → producto.id
+     *   PEDIDO, PAGO, ENVIO → pedido.id
+     *   SERVICIO            → servicio_tecnico.id
+     *   RECLAMO             → reclamo.id
+     *   (null si no aplica)
+     */
+    @Column(name = "referencia_id")
+    private Integer referenciaId;
+
+
     @Column(name = "leido")
     private Boolean leido = false;
 

@@ -11,6 +11,7 @@ public class NotificacionDTO {
     private String usuarioNombre;   // ← nuevo (opcional)
     private String tipo;
     private String mensaje;
+    private Integer referenciaId;
     private Boolean leido;
     private LocalDateTime fecha;
 }

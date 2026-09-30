@@ -85,11 +85,18 @@ public class NotificacionServiceImpl implements NotificacionService {
     @Override
     @Transactional
     public NotificacionDTO crearNotificacion(Integer usuarioId, String tipo, String mensaje) {
+        return crearNotificacion(usuarioId, tipo, mensaje, null);
+    }
+    @Override
+    @Transactional
+    public NotificacionDTO crearNotificacion(
+            Integer usuarioId, String tipo, String mensaje, Integer referenciaId) {
         System.out.println("═══════════════════════════════════════");
         System.out.println("📝 CREANDO NOTIFICACIÓN");
         System.out.println("👤 Usuario ID: " + usuarioId);
         System.out.println("📋 Tipo: " + tipo);
         System.out.println("💬 Mensaje: " + mensaje);
+        System.out.println("🔗 Referencia ID: " + referenciaId);
 
         Usuario usuario = usuarioRepository.findById(usuarioId)
                 .orElseThrow(() -> new RuntimeException("Usuario no encontrado con ID: " + usuarioId));
@@ -98,6 +105,7 @@ public class NotificacionServiceImpl implements NotificacionService {
                 .usuario(usuario)
                 .tipo(tipo)
                 .mensaje(mensaje)
+                .referenciaId(referenciaId)   // 👈 NUEVO
                 .leido(false)
                 .fecha(LocalDateTime.now())
                 .build();
@@ -108,13 +116,11 @@ public class NotificacionServiceImpl implements NotificacionService {
         System.out.println("✅ Notificación guardada con ID: " + saved.getId());
         System.out.println("📡 Publicando evento (WebSocket se enviará tras commit)");
 
-        // ✅ Publicar evento: el listener AFTER_COMMIT enviará por WebSocket
         eventPublisher.publishEvent(new NotificacionEvent(this, usuarioId, dto));
 
         System.out.println("═══════════════════════════════════════");
         return dto;
     }
-
     // =========================================================
     // ✅ MÉTODOS PARA ADMIN (sin usuarioId)
     // =========================================================
@@ -184,6 +190,7 @@ public class NotificacionServiceImpl implements NotificacionService {
         dto.setUsuarioNombre(notificacion.getUsuario().getNombre());
         dto.setTipo(notificacion.getTipo());
         dto.setMensaje(notificacion.getMensaje());
+        dto.setReferenciaId(notificacion.getReferenciaId());
         dto.setLeido(notificacion.getLeido());
         dto.setFecha(notificacion.getFecha());
         return dto;

@@ -5,6 +5,8 @@ import com.reydi.tienda.repository.ReclamoEvidenciasRepository;
 import com.reydi.tienda.service.ReclamoEvidenciasService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -12,46 +14,41 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class ReclamoEvidenciasServiceImpl implements ReclamoEvidenciasService {
 
-    private final ReclamoEvidenciasRepository reclamoEvidenciasRepository;
+    private final ReclamoEvidenciasRepository evidenciaRepository;
 
     @Override
-    public List<ReclamoEvidencias> listarTodos() {
-        return reclamoEvidenciasRepository.findAll();
+    public List<ReclamoEvidencias> listarPorReclamo(Integer reclamoId) {
+        return evidenciaRepository.findByReclamoId(reclamoId);
     }
 
     @Override
     public Optional<ReclamoEvidencias> buscarPorId(Integer id) {
-        return reclamoEvidenciasRepository.findById(id);
+        return evidenciaRepository.findById(id);
     }
 
     @Override
-    public List<ReclamoEvidencias> buscarPorReclamo(Integer reclamoId) {
-        return reclamoEvidenciasRepository.findByReclamoId(reclamoId);
-    }
-
-    @Override
+    @Transactional
     public ReclamoEvidencias guardar(ReclamoEvidencias evidencia) {
-        return reclamoEvidenciasRepository.save(evidencia);
+        return evidenciaRepository.save(evidencia);
     }
 
     @Override
-    public ReclamoEvidencias actualizar(ReclamoEvidencias evidencia) {
-        if (!reclamoEvidenciasRepository.existsById(evidencia.getId())) {
-            throw new RuntimeException("Evidencia no encontrada");
-        }
-        return reclamoEvidenciasRepository.save(evidencia);
-    }
-
-    @Override
+    @Transactional
     public void eliminar(Integer id) {
-        if (!reclamoEvidenciasRepository.existsById(id)) {
-            throw new RuntimeException("Evidencia no encontrada");
+        if (!evidenciaRepository.existsById(id)) {
+            throw new RuntimeException("Evidencia no encontrada con ID: " + id);
         }
-        reclamoEvidenciasRepository.deleteById(id);
+        evidenciaRepository.deleteById(id);
     }
 
     @Override
+    @Transactional
     public void eliminarPorReclamo(Integer reclamoId) {
-        reclamoEvidenciasRepository.deleteByReclamoId(reclamoId);
+        evidenciaRepository.deleteByReclamoId(reclamoId);
+    }
+
+    @Override
+    public boolean existeEvidenciaParaReclamo(Integer reclamoId) {
+        return !evidenciaRepository.findByReclamoId(reclamoId).isEmpty();
     }
 }

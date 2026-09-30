@@ -4,9 +4,14 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class EmailService {
@@ -167,6 +172,222 @@ public class EmailService {
         } catch (MessagingException e) {
             System.err.println("❌ Error al enviar email de confirmación: " + e.getMessage());
             // No lanzamos excepción: si esto falla, no queremos romper el flujo de reset
+        }
+    }
+
+    // =========================================================
+// ✅ NUEVO: Enviar comprobante por correo
+// =========================================================
+    public void enviarComprobante(
+            String destinatario,
+            String clienteNombre,
+            String numeroComprobante,
+            String fecha,
+            String total,
+            List<Map<String, Object>> productos,   // [{nombre, cantidad, precio, subtotal}, ...]
+            String metodoPago,
+            byte[] pdfAdjunto                       // opcional: si no tienes PDF, pásalo como null
+    )
+
+    {
+        String asunto = "Tu comprobante Nº " + numeroComprobante + " - JIMENEZ";
+
+        String html = construirHtmlComprobante(
+                clienteNombre,
+                numeroComprobante,
+                fecha,
+                total,
+                productos,
+                metodoPago
+        );
+
+        boolean modoSimulado = "simulado".equalsIgnoreCase(emailMode) || mailSender == null;
+
+        if (modoSimulado) {
+            System.out.println("════════════════════════════════════════════════════════");
+            System.out.println("📧 COMPROBANTE (MODO SIMULADO)");
+            System.out.println("Para: " + destinatario);
+            System.out.println("Comprobante: " + numeroComprobante);
+            System.out.println("Total: " + total);
+            System.out.println("════════════════════════════════════════════════════════");
+            return;
+        }
+
+        try {
+            MimeMessage mensaje = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(
+                    mensaje,
+                    true,       // multipart (para adjunto)
+                    "UTF-8"
+            );
+
+            helper.setTo(destinatario);
+            helper.setSubject(asunto);
+            helper.setText(html, true);
+            helper.setFrom(fromEmail);
+
+            // Si hay PDF adjunto
+            if (pdfAdjunto != null && pdfAdjunto.length > 0) {
+                helper.addAttachment(
+                        "comprobante-" + numeroComprobante + ".pdf",
+                        new org.springframework.core.io.ByteArrayResource(pdfAdjunto)
+                );
+            }
+
+            mailSender.send(mensaje);
+            System.out.println("📧 Comprobante enviado a " + destinatario);
+
+        } catch (MessagingException e) {
+            System.err.println("❌ Error al enviar comprobante: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("No se pudo enviar el comprobante por correo");
+        }
+    }
+
+    // =========================================================
+// ✅ Plantilla HTML del correo de comprobante
+// =========================================================
+    private String construirHtmlComprobante(
+            String clienteNombre,
+            String numeroComprobante,
+            String fecha,
+            String total,
+            List<Map<String, Object>> productos,
+            String metodoPago
+    ) {
+        StringBuilder filasProductos = new StringBuilder();
+        for (Map<String, Object> p : productos) {
+            filasProductos.append("""
+            <tr>
+                <td style="padding: 8px; border-bottom: 1px solid #eee; color: #333;">%s</td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee; color: #333; text-align: center;">%s</td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee; color: #333; text-align: right;">%s</td>
+                <td style="padding: 8px; border-bottom: 1px solid #eee; color: #333; text-align: right; font-weight: bold;">%s</td>
+            </tr>
+            """.formatted(
+                    p.get("nombre"),
+                    p.get("cantidad"),
+                    p.get("precio"),
+                    p.get("subtotal")
+            ));
+        }
+
+        return """
+        <div style="font-family: Arial, sans-serif; max-width: 640px; margin: auto;
+                    padding: 24px; background: #f9f9f9; border-radius: 12px;">
+
+            <!-- Header con logo -->
+            <div style="text-align: center; margin-bottom: 24px;">
+                <h1 style="font-size: 32px; font-weight: 900; font-style: italic;
+                           color: #0d0c1e; margin: 0;">
+                    Jimenez<span style="color: #5b4eff;">.</span>
+                </h1>
+                <p style="color: #888; font-size: 12px; margin: 4px 0;">Tu tienda de confianza</p>
+            </div>
+
+            <!-- Título -->
+            <h2 style="color: #5b4eff; margin-bottom: 8px;">¡Gracias por tu compra, %s!</h2>
+            <p style="color: #333;">Adjunto encontrarás tu comprobante electrónico.</p>
+
+            <!-- Datos del comprobante -->
+            <div style="background: white; border-radius: 8px; padding: 16px; margin: 20px 0;">
+                <table style="width: 100%%; font-size: 14px;">
+                    <tr>
+                        <td style="color: #888; padding: 4px 0;">Comprobante:</td>
+                        <td style="color: #333; font-weight: bold; text-align: right;">Nº %s</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #888; padding: 4px 0;">Fecha:</td>
+                        <td style="color: #333; text-align: right;">%s</td>
+                    </tr>
+                    <tr>
+                        <td style="color: #888; padding: 4px 0;">Método de pago:</td>
+                        <td style="color: #333; text-align: right;">%s</td>
+                    </tr>
+                </table>
+            </div>
+
+            <!-- Detalle de productos -->
+            <div style="background: white; border-radius: 8px; padding: 16px; margin: 20px 0;">
+                <h3 style="color: #0d0c1e; margin: 0 0 12px 0; font-size: 16px;">Detalle</h3>
+                <table style="width: 100%%; font-size: 13px; border-collapse: collapse;">
+                    <thead>
+                        <tr style="background: #f4f7fe;">
+                            <th style="padding: 8px; text-align: left; color: #5b4eff; font-size: 11px; text-transform: uppercase;">Producto</th>
+                            <th style="padding: 8px; text-align: center; color: #5b4eff; font-size: 11px; text-transform: uppercase;">Cant.</th>
+                            <th style="padding: 8px; text-align: right; color: #5b4eff; font-size: 11px; text-transform: uppercase;">Precio</th>
+                            <th style="padding: 8px; text-align: right; color: #5b4eff; font-size: 11px; text-transform: uppercase;">Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        %s
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Total -->
+            <div style="background: #5b4eff; color: white; border-radius: 8px; padding: 16px; margin: 20px 0;
+                        display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 14px; opacity: 0.9;">Total pagado:</span>
+                <span style="font-size: 24px; font-weight: 900;">%s</span>
+            </div>
+
+            <!-- Footer -->
+            <p style="color: #666; font-size: 13px; text-align: center; margin-top: 24px;">
+                Si tienes alguna consulta, contáctanos al <b>997 863 112</b><br>
+                o escríbenos a <a href="mailto:soporte@jimenez.com" style="color: #5b4eff;">soporte@jimenez.com</a>
+            </p>
+
+            <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;" />
+
+            <p style="color: #999; font-size: 11px; text-align: center; margin: 0;">
+                © %d JIMENEZ. Todos los derechos reservados.<br>
+                RUC: 20601234567 · Amazonas, Písac 08106 - Cusco - Perú
+            </p>
+        </div>
+        """.formatted(
+                clienteNombre,
+                numeroComprobante,
+                fecha,
+                metodoPago,
+                filasProductos.toString(),
+                total,
+                java.time.Year.now().getValue()
+        );
+    }
+
+    /**
+     * ✅ NUEVO: Envía el comprobante de forma asíncrona (no bloquea la respuesta).
+     * Se llama automáticamente después de generar un comprobante.
+     */
+    @Async
+    public void enviarComprobanteAutomatico(
+            String destinatario,
+            String clienteNombre,
+            String numeroComprobante,
+            String fecha,
+            String total,
+            List<Map<String, Object>> productos,
+            String metodoPago,
+            byte[] pdfAdjunto
+    ) {
+        try {
+            System.out.println("📧 Iniciando envío automático de comprobante a " + destinatario);
+            enviarComprobante(
+                    destinatario,
+                    clienteNombre,
+                    numeroComprobante,
+                    fecha,
+                    total,
+                    productos,
+                    metodoPago,
+                    pdfAdjunto
+            );
+            System.out.println("✅ Comprobante enviado automáticamente a " + destinatario);
+        } catch (Exception e) {
+            System.err.println("❌ Error en envío automático: " + e.getMessage());
+            e.printStackTrace();
+            // No relanzamos la excepción para no afectar el flujo de la venta
         }
     }
 }

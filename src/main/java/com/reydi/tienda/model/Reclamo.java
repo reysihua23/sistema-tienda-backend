@@ -36,8 +36,18 @@ public class Reclamo {
      * (probablemente con DEFAULT CURRENT_TIMESTAMP). Eso no afecta al flujo de
      * notificaciones, solo tenlo presente.
      * */
-    @Column(name = "fecha", insertable = false, updatable = false)
+    @Column(name = "fecha")
     private LocalDateTime fecha;
+
+    @PrePersist
+    public void prePersist() {
+        if (this.fecha == null) {
+            this.fecha = LocalDateTime.now();
+        }
+        if (this.estado == null) {
+            this.estado = EstadoReclamo.REGISTRADO;
+        }
+    }
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cliente_id", nullable = false)

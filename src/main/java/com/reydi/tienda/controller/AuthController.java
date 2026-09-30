@@ -8,11 +8,12 @@ import com.reydi.tienda.model.Cliente;
 import com.reydi.tienda.model.Rol;
 import com.reydi.tienda.model.TipoRol;
 import com.reydi.tienda.model.Usuario;
-import com.reydi.tienda.security.JwtUtil;
+import com.reydi.tienda.service.AuthService;
 import com.reydi.tienda.service.ClienteService;
 import com.reydi.tienda.service.PasswordResetService;
 import com.reydi.tienda.service.RolService;
 import com.reydi.tienda.service.UsuarioService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -28,57 +29,35 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class AuthController {
 
+    private final AuthService authService;         // ✅ NUEVO
     private final UsuarioService usuarioService;
     private final RolService rolService;
     private final ClienteService clienteService;
-    private final JwtUtil jwtUtil;
-
-    // Para recuperar contraseña
     private final PasswordResetService passwordResetService;
 
+    // =========================================================
+    // 🔐 LOGIN
+    // =========================================================
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
+    public ResponseEntity<?> login(@Valid @RequestBody LoginRequest request) {
         try {
-            Usuario usuario = usuarioService.autenticar(request.getCorreo(), request.getPassword());
-
-            String token = jwtUtil.generarToken(
-                    usuario.getCorreo(),
-                    usuario.getRol().getNombre().name(),
-                    usuario.getId()
-            );
-
-            // Obtener nombre
-            String nombre = "";
-            Integer clienteId = null;
-            if (usuario.getCliente() != null) {
-                nombre = usuario.getCliente().getNombre();
-                clienteId = usuario.getCliente().getId();
-            } else {
-                nombre = usuario.getCorreo();
-            }
-
-            LoginResponse response = LoginResponse.builder()
-                    .token(token)
-                    .tipo("Bearer")
-                    .correo(usuario.getCorreo())
-                    .rol(usuario.getRol().getNombre().name())
-                    .usuarioId(usuario.getId())
-                    .clienteId(clienteId)
-                    .nombre(nombre)
-                    .build();
-
+            LoginResponse response = authService.login(request);
             return ResponseEntity.ok(response);
 
         } catch (RuntimeException e) {
-            return ResponseEntity.status(401).body(e.getMessage());
+            // ✅ Mensaje genérico (no revela si el correo existe o no)
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
+                    Map.of("error", "Credenciales inválidas")
+            );
         }
     }
 
+    // =========================================================
+    // 📝 REGISTRO DE CLIENTE
+    // =========================================================
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         try {
-            // ==================== VALIDACIONES ====================
-
             // Validar que el correo no exista
             if (usuarioService.existeCorreo(request.getCorreo())) {
                 Map<String, String> error = new HashMap<>();
@@ -107,7 +86,8 @@ public class AuthController {
 
             // Validar documento (8 o 11 dígitos)
             if (request.getDocumento() != null && !request.getDocumento().isEmpty()) {
-                if (!request.getDocumento().matches("^[0-9]{8}$") && !request.getDocumento().matches("^[0-9]{11}$")) {
+                if (!request.getDocumento().matches("^[0-9]{8}$")
+                        && !request.getDocumento().matches("^[0-9]{11}$")) {
                     Map<String, String> error = new HashMap<>();
                     error.put("error", "El documento debe tener 8 dígitos (DNI) o 11 dígitos (RUC)");
                     error.put("campo", "documento");
@@ -128,14 +108,12 @@ public class AuthController {
             Cliente clienteGuardado = clienteService.guardar(cliente);
 
             // ==================== CREAR USUARIO ====================
-            // Buscar rol CLIENTE
             Rol rolCliente = rolService.buscarPorNombre(TipoRol.CLIENTE)
                     .orElseThrow(() -> new RuntimeException("Rol CLIENTE no encontrado"));
 
-            // Crear usuario
             Usuario usuario = new Usuario();
             usuario.setCorreo(request.getCorreo());
-            usuario.setNombre(request.getNombre());
+            usuario.setNombre(request.getNombre());   // ✅ AHORA SÍ GUARDA EL NOMBRE
             usuario.setPasswordHash(new BCryptPasswordEncoder().encode(request.getPassword()));
             usuario.setRol(rolCliente);
             usuario.setCliente(clienteGuardado);
@@ -143,7 +121,7 @@ public class AuthController {
 
             usuarioService.guardar(usuario);
 
-            // ==================== RESPUESTA EN JSON ====================
+            // ==================== RESPUESTA ====================
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "Cliente registrado exitosamente");
@@ -165,7 +143,9 @@ public class AuthController {
         }
     }
 
-
+    // =========================================================
+    // 👨‍💼 REGISTRO DE EMPLEADO
+    // =========================================================
     @PostMapping("/register-employee")
     public ResponseEntity<?> registerEmployee(@RequestBody RegisterEmployeeRequest request) {
         try {
@@ -189,6 +169,7 @@ public class AuthController {
             // Crear usuario
             Usuario usuario = new Usuario();
             usuario.setCorreo(request.getCorreo());
+            usuario.setNombre(request.getNombreCompleto());   // ✅ USA nombreCompleto
             usuario.setPasswordHash(new BCryptPasswordEncoder().encode(request.getPassword()));
             usuario.setRol(rol);
             usuario.setCliente(null);
@@ -196,16 +177,18 @@ public class AuthController {
 
             usuarioService.guardar(usuario);
 
-            return ResponseEntity.status(201).body("Usuario " + tipoRol + " registrado exitosamente");
+            return ResponseEntity.status(201).body(
+                    "Usuario " + tipoRol + " registrado exitosamente"
+            );
 
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
-    //===========================================
-    // PARA RECUPERAR CONTRASEÑA DEL USUARIO
-    //===========================================
+    // =========================================================
+    // 🔑 RECUPERAR CONTRASEÑA
+    // =========================================================
     @PostMapping("/forgot-password")
     public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> body) {
         String correo = body.get("correo");
@@ -219,7 +202,6 @@ public class AuthController {
                     "message", "Si el correo está registrado, recibirás un enlace de recuperación."
             ));
         } catch (RuntimeException e) {
-            // ✅ Capturar rate limit u otros errores
             return ResponseEntity.status(429).body(Map.of("error", e.getMessage()));
         }
     }

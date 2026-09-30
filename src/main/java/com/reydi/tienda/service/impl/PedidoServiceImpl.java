@@ -3,9 +3,11 @@ package com.reydi.tienda.service.impl;
 import com.reydi.tienda.model.DetallePedido;
 import com.reydi.tienda.model.EstadoPedido;
 import com.reydi.tienda.model.Pedido;
+import com.reydi.tienda.model.TipoRol;
 import com.reydi.tienda.repository.DetallePedidoRepository;
 import com.reydi.tienda.repository.PedidoRepository;
-import com.reydi.tienda.service.NotificacionService;
+import com.reydi.tienda.security.UsuarioActualHelper;
+import com.reydi.tienda.service.NotificacionHelper;
 import com.reydi.tienda.service.NotificationRecipientResolver;
 import com.reydi.tienda.service.PedidoService;
 import jakarta.persistence.EntityManager;
@@ -26,8 +28,9 @@ public class PedidoServiceImpl implements PedidoService {
 
     private final PedidoRepository pedidoRepository;
     private final DetallePedidoRepository detallePedidoRepository;
-    private final NotificacionService notificacionService;
+    private final NotificacionHelper notificacionHelper;
     private final NotificationRecipientResolver recipientResolver;
+    private final UsuarioActualHelper usuarioActualHelper;
 
     @PersistenceContext
     private EntityManager entityManager;
@@ -69,6 +72,7 @@ public class PedidoServiceImpl implements PedidoService {
 
     // =========================================================
     // ✅ GUARDAR
+    // Regla: Cliente crea el pedido → notificar a ADMIN + VENTAS
     // =========================================================
     @Override
     @Transactional
@@ -103,22 +107,14 @@ public class PedidoServiceImpl implements PedidoService {
 
             System.out.println("✅ Pedido guardado con SQL nativo - ID: " + id);
 
-            // ✅ 1. ADMIN
-            notificacionService.crearNotificacion(
-                    recipientResolver.adminId(),
+            // ✅ Notificar a ADMIN + VENTAS (gestión)
+            // NO se notifica al cliente porque él mismo lo generó
+            notificacionHelper.notificarA(
+                    recipientResolver.idsAdminYVentas(),
                     "PEDIDO",
-                    "🛒 Nuevo pedido #" + id + " - S/ " + pedido.getTotal()
+                    "🛒 Nuevo pedido #" + id + " - S/ " + pedido.getTotal(),
+                    id
             );
-
-            // ✅ 2. CLIENTE
-            Integer clienteUsuarioId = recipientResolver.clienteUsuarioIdOrNull(pedido.getCliente());
-            if (clienteUsuarioId != null) {
-                notificacionService.crearNotificacion(
-                        clienteUsuarioId,
-                        "PEDIDO",
-                        "🛒 Tu pedido #" + id + " fue registrado - S/ " + pedido.getTotal()
-                );
-            }
 
             return pedido;
 
@@ -130,6 +126,7 @@ public class PedidoServiceImpl implements PedidoService {
 
     // =========================================================
     // ✅ ACTUALIZAR
+    // Regla: Admin/Vendedor actualiza → notificar al CLIENTE dueño
     // =========================================================
     @Override
     @Transactional
@@ -139,28 +136,21 @@ public class PedidoServiceImpl implements PedidoService {
         }
         Pedido saved = pedidoRepository.save(pedido);
 
-        // ✅ 1. ADMIN
-        notificacionService.crearNotificacion(
-                recipientResolver.adminId(),
-                "PEDIDO",
-                "✏️ Pedido #" + saved.getId() + " actualizado"
-        );
-
-        // ✅ 2. CLIENTE
+        // ✅ Notificar al CLIENTE dueño
         Integer clienteUsuarioId = recipientResolver.clienteUsuarioIdOrNull(saved.getCliente());
-        if (clienteUsuarioId != null) {
-            notificacionService.crearNotificacion(
-                    clienteUsuarioId,
-                    "PEDIDO",
-                    "✏️ Tu pedido #" + saved.getId() + " fue actualizado"
-            );
-        }
+        notificacionHelper.notificarA(
+                clienteUsuarioId,
+                "PEDIDO",
+                "✏️ Tu pedido #" + saved.getId() + " fue actualizado",
+                saved.getId()
+        );
 
         return saved;
     }
 
     // =========================================================
     // ✅ ELIMINAR
+    // Regla: Admin/Vendedor elimina → notificar al CLIENTE dueño
     // =========================================================
     @Override
     @Transactional
@@ -169,26 +159,21 @@ public class PedidoServiceImpl implements PedidoService {
                 .orElseThrow(() -> new RuntimeException("Pedido no encontrado"));
         pedidoRepository.deleteById(id);
 
-        // ✅ ADMIN
-        notificacionService.crearNotificacion(
-                recipientResolver.adminId(),
-                "PEDIDO",
-                "🗑️ Pedido eliminado #" + id
-        );
-
-        // ✅ CLIENTE
+        // ✅ Notificar al CLIENTE dueño
         Integer clienteUsuarioId = recipientResolver.clienteUsuarioIdOrNull(pedido.getCliente());
-        if (clienteUsuarioId != null) {
-            notificacionService.crearNotificacion(
-                    clienteUsuarioId,
-                    "PEDIDO",
-                    "🗑️ Tu pedido #" + id + " fue eliminado"
-            );
-        }
+        notificacionHelper.notificarA(
+                clienteUsuarioId,
+                "PEDIDO",
+                "🗑️ Tu pedido #" + id + " fue eliminado",
+                id
+        );
     }
 
     // =========================================================
     // ✅ CAMBIAR ESTADO
+    // Regla:
+    //   - Si lo hace ADMIN/VENTAS → notificar al CLIENTE dueño
+    //   - Si lo hace CLIENTE (raro) → notificar a ADMIN + VENTAS
     // =========================================================
     @Override
     @Transactional
@@ -198,20 +183,24 @@ public class PedidoServiceImpl implements PedidoService {
         pedido.setEstado(nuevoEstado);
         Pedido saved = pedidoRepository.save(pedido);
 
-        // ✅ ADMIN
-        notificacionService.crearNotificacion(
-                recipientResolver.adminId(),
-                "PEDIDO",
-                "🔄 Pedido #" + id + " cambió a " + nuevoEstado.name()
-        );
+        TipoRol rolActual = usuarioActualHelper.getRolActual();
 
-        // ✅ CLIENTE
-        Integer clienteUsuarioId = recipientResolver.clienteUsuarioIdOrNull(saved.getCliente());
-        if (clienteUsuarioId != null) {
-            notificacionService.crearNotificacion(
+        if (rolActual == TipoRol.ADMIN || rolActual == TipoRol.VENTAS) {
+            // ✅ Lo cambió admin/vendedor → notificar SOLO al cliente dueño
+            Integer clienteUsuarioId = recipientResolver.clienteUsuarioIdOrNull(saved.getCliente());
+            notificacionHelper.notificarA(
                     clienteUsuarioId,
                     "PEDIDO",
-                    "🔄 Tu pedido #" + id + " cambió a " + nuevoEstado.name()
+                    "🔄 Tu pedido #" + id + " cambió a " + nuevoEstado.name(),
+                    id
+            );
+        } else {
+            // ✅ Lo cambió el cliente → notificar a ADMIN + VENTAS
+            notificacionHelper.notificarA(
+                    recipientResolver.idsAdminYVentas(),
+                    "PEDIDO",
+                    "🔄 Pedido #" + id + " cambió a " + nuevoEstado.name(),
+                    id
             );
         }
 

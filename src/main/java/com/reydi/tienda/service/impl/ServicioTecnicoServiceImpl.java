@@ -65,11 +65,14 @@ public class ServicioTecnicoServiceImpl implements ServicioTecnicoService {
         }
         ServicioTecnico saved = repository.save(servicio);
 
+        Integer servicioId = saved.getId();   // 👈 referenciaId = servicio.id
+
         // ✅ ADMIN
         notificacionService.crearNotificacion(
                 recipientResolver.adminId(),
                 "SERVICIO",
-                "🔧 Nuevo servicio técnico #" + saved.getId()
+                "🔧 Nuevo servicio técnico #" + saved.getId(),
+                servicioId
         );
 
         // ✅ CLIENTE
@@ -78,7 +81,8 @@ public class ServicioTecnicoServiceImpl implements ServicioTecnicoService {
             notificacionService.crearNotificacion(
                     clienteUsuarioId,
                     "SERVICIO",
-                    "🔧 Tu servicio #" + saved.getId() + " fue registrado"
+                    "🔧 Tu servicio #" + saved.getId() + " fue registrado",
+                    servicioId
             );
         } else {
             System.out.println("⚠️ Cliente sin usuario asociado: " +
@@ -99,10 +103,13 @@ public class ServicioTecnicoServiceImpl implements ServicioTecnicoService {
         }
         ServicioTecnico saved = repository.save(servicio);
 
+        Integer servicioId = saved.getId();
+
         notificacionService.crearNotificacion(
                 recipientResolver.adminId(),
                 "SERVICIO",
-                "✏️ Servicio #" + saved.getId() + " actualizado"
+                "✏️ Servicio #" + saved.getId() + " actualizado",
+                servicioId
         );
 
         Integer clienteUsuarioId = recipientResolver.clienteUsuarioIdOrNull(saved.getCliente());
@@ -110,7 +117,8 @@ public class ServicioTecnicoServiceImpl implements ServicioTecnicoService {
             notificacionService.crearNotificacion(
                     clienteUsuarioId,
                     "SERVICIO",
-                    "✏️ Tu servicio #" + saved.getId() + " fue actualizado"
+                    "✏️ Tu servicio #" + saved.getId() + " fue actualizado",
+                    servicioId
             );
         }
 
@@ -130,7 +138,8 @@ public class ServicioTecnicoServiceImpl implements ServicioTecnicoService {
         notificacionService.crearNotificacion(
                 recipientResolver.adminId(),
                 "SERVICIO",
-                "🗑️ Servicio eliminado #" + id
+                "🗑️ Servicio eliminado #" + id,
+                id   // 👈 referenciaId
         );
 
         Integer clienteUsuarioId = recipientResolver.clienteUsuarioIdOrNull(servicio.getCliente());
@@ -138,13 +147,14 @@ public class ServicioTecnicoServiceImpl implements ServicioTecnicoService {
             notificacionService.crearNotificacion(
                     clienteUsuarioId,
                     "SERVICIO",
-                    "🗑️ Tu servicio #" + id + " fue eliminado"
+                    "🗑️ Tu servicio #" + id + " fue eliminado",
+                    id
             );
         }
     }
 
     // =========================================================
-    // ✅ CAMBIAR ESTADO (el caso que reportaste)
+    // ✅ CAMBIAR ESTADO
     // =========================================================
     @Override
     @Transactional
@@ -159,7 +169,8 @@ public class ServicioTecnicoServiceImpl implements ServicioTecnicoService {
         notificacionService.crearNotificacion(
                 recipientResolver.adminId(),
                 "SERVICIO",
-                "🔄 Servicio #" + id + " cambió a " + nuevoEstado
+                "🔄 Servicio #" + id + " cambió a " + nuevoEstado,
+                id   // 👈 referenciaId
         );
 
         // ✅ 2. CLIENTE
@@ -168,7 +179,8 @@ public class ServicioTecnicoServiceImpl implements ServicioTecnicoService {
             notificacionService.crearNotificacion(
                     clienteUsuarioId,
                     "SERVICIO",
-                    "🔄 Tu servicio #" + id + " cambió a " + nuevoEstado
+                    "🔄 Tu servicio #" + id + " cambió a " + nuevoEstado,
+                    id
             );
         } else {
             System.out.println("⚠️ Cliente sin usuario asociado: " +
@@ -194,7 +206,8 @@ public class ServicioTecnicoServiceImpl implements ServicioTecnicoService {
         notificacionService.crearNotificacion(
                 recipientResolver.adminId(),
                 "SERVICIO",
-                "🩺 Diagnóstico agregado al servicio #" + id + " (S/ " + costo + ")"
+                "🩺 Diagnóstico agregado al servicio #" + id + " (S/ " + costo + ")",
+                id   // 👈 referenciaId
         );
 
         Integer clienteUsuarioId = recipientResolver.clienteUsuarioIdOrNull(saved.getCliente());
@@ -202,7 +215,8 @@ public class ServicioTecnicoServiceImpl implements ServicioTecnicoService {
             notificacionService.crearNotificacion(
                     clienteUsuarioId,
                     "SERVICIO",
-                    "🩺 Diagnóstico de tu servicio #" + id + ": " + diagnostico
+                    "🩺 Diagnóstico de tu servicio #" + id + ": " + diagnostico,
+                    id
             );
         }
 
