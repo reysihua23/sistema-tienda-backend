@@ -42,7 +42,7 @@ public class SecurityConfig {
                         // Endpoints públicos
                         // ✅ 1. Rutas públicas primero
                         .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/uploads/**").permitAll()
+                        //.requestMatchers("/uploads/**").permitAll()
 
                         .requestMatchers("/api/productos/**").permitAll()
                         .requestMatchers("/api/productos/activos").permitAll()
@@ -51,11 +51,20 @@ public class SecurityConfig {
                         .requestMatchers("/api/producto-imagenes/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/usuarios").permitAll()
-                        .requestMatchers("/api/clientes").permitAll()
+                        //.requestMatchers("/api/clientes").permitAll()
                         // ✅ 2. WebSocket (debe ir ANTES de anyRequest)
                         .requestMatchers("/ws/**").permitAll()
 
                         // usuarios autenticados pueden crear pedidos
+
+                        // Permitir solo el POST para registrar nuevos clientes
+                        .requestMatchers(HttpMethod.POST, "/api/clientes").permitAll()
+
+                        // El resto de operaciones (GET, PUT, DELETE) requieren estar logueado
+                        .requestMatchers(HttpMethod.GET, "/api/clientes/**").authenticated()
+                        .requestMatchers(HttpMethod.PUT, "/api/clientes/**").authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/clientes/**").hasRole("ADMIN") // Solo el admin puede borrar clientes
+
                         .requestMatchers(HttpMethod.POST, "/api/pedidos").authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/pedidos/**").authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/api/pedidos/**").authenticated()

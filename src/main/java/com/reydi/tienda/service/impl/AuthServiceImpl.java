@@ -27,6 +27,11 @@ public class AuthServiceImpl implements AuthService {
                 request.getPassword()
         );
 
+        // ✅ 2. Validar si la cuenta está activa (ANTES de generar el token)
+        if (usuario.getActivo() != null && !usuario.getActivo()) {
+            throw new RuntimeException("Tu cuenta ha sido desactivada. Contacta con soporte.");
+        }
+
         // 2. Generar token JWT
         String token = jwtUtil.generarToken(
                 usuario.getCorreo(),
@@ -42,6 +47,7 @@ public class AuthServiceImpl implements AuthService {
                 ? usuario.getCliente().getId()
                 : null;
 
+
         // 5. Construir respuesta
         return LoginResponse.builder()
                 .token(token)
@@ -52,6 +58,8 @@ public class AuthServiceImpl implements AuthService {
                 .clienteId(clienteId)
                 .nombre(nombre)
                 .build();
+
+
     }
 
     /**

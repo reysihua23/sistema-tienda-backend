@@ -390,4 +390,6 @@ public class EmailService {
             // No relanzamos la excepción para no afectar el flujo de la venta
         }
     }
+
+
 }

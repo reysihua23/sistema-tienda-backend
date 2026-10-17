@@ -35,6 +35,8 @@ public class ClienteServiceImpl implements ClienteService {
                 .map(this::convertirAEntidad);
     }
 
+
+
     // ClienteServiceImpl.java
     @Override
     public Optional<Cliente> buscarPorDocumento(String documento) {

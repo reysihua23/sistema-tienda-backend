@@ -60,6 +60,33 @@ public class AuthController {
         try {
             // Validar que el correo no exista
             if (usuarioService.existeCorreo(request.getCorreo())) {
+                // Buscamos al usuario existente
+                Usuario usuarioExistente = usuarioService.buscarPorCorreo(request.getCorreo()).orElse(null);
+
+                if (usuarioExistente != null && !usuarioExistente.getActivo()) {
+                    // ¡El usuario existe pero está inactivo! Lo reactivamos
+                    usuarioExistente.setActivo(true);
+                    usuarioExistente.setNombre(request.getNombre()); // El nombre sí existe en Usuario
+                    usuarioExistente.setPasswordHash(new BCryptPasswordEncoder().encode(request.getPassword()));
+
+                    // Si tiene cliente asociado, actualizamos sus datos (aquí sí va el teléfono)
+                    if (usuarioExistente.getCliente() != null) {
+                        Cliente cliente = usuarioExistente.getCliente();
+                        cliente.setNombre(request.getNombre());
+                        cliente.setTelefono(request.getTelefono()); // ✅ Aquí SÍ va el teléfono
+                        cliente.setDocumento(request.getDocumento()); // Por si acaso
+                        clienteService.guardar(cliente);
+                    }
+
+                    usuarioService.guardar(usuarioExistente);
+
+                    return ResponseEntity.status(HttpStatus.OK).body(Map.of(
+                            "success", true,
+                            "message", "¡Bienvenido de vuelta! Tu cuenta ha sido reactivada exitosamente."
+                    ));
+                }
+
+                // Si existe y está ACTIVO, sí bloqueamos el registro
                 Map<String, String> error = new HashMap<>();
                 error.put("error", "El correo electrónico ya está registrado");
                 error.put("campo", "email");
@@ -222,4 +249,6 @@ public class AuthController {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
+
+
 }

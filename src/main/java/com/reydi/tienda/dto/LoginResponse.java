@@ -16,5 +16,6 @@ public class LoginResponse {
     private String rol;
     private Integer usuarioId;
     private Integer clienteId;
-    private String nombre;  //
+    private String nombre;
+    private Boolean verificado;
 }
