@@ -58,6 +58,7 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
         try {
+
             // Validar que el correo no exista
             if (usuarioService.existeCorreo(request.getCorreo())) {
                 // Buscamos al usuario existente
@@ -66,15 +67,26 @@ public class AuthController {
                 if (usuarioExistente != null && !usuarioExistente.getActivo()) {
                     // ¡El usuario existe pero está inactivo! Lo reactivamos
                     usuarioExistente.setActivo(true);
-                    usuarioExistente.setNombre(request.getNombre()); // El nombre sí existe en Usuario
+                    usuarioExistente.setNombre(request.getNombre());
                     usuarioExistente.setPasswordHash(new BCryptPasswordEncoder().encode(request.getPassword()));
 
-                    // Si tiene cliente asociado, actualizamos sus datos (aquí sí va el teléfono)
-                    if (usuarioExistente.getCliente() != null) {
+                    // ✅ SOLUCIÓN: Verificar si el cliente se perdió o sigue asociado
+                    if (usuarioExistente.getCliente() == null) {
+                        // Si no tiene cliente, lo buscamos por el correo (quedó huérfano)
+                        Cliente clienteHuerfano = clienteService.buscarPorEmail(request.getCorreo()).orElse(null);
+                        if (clienteHuerfano != null) {
+                            usuarioExistente.setCliente(clienteHuerfano);
+                            clienteHuerfano.setNombre(request.getNombre());
+                            clienteHuerfano.setTelefono(request.getTelefono());
+                            clienteHuerfano.setDocumento(request.getDocumento());
+                            clienteService.guardar(clienteHuerfano);
+                        }
+                    } else {
+                        // Si sí tiene cliente, solo actualizamos sus datos
                         Cliente cliente = usuarioExistente.getCliente();
                         cliente.setNombre(request.getNombre());
-                        cliente.setTelefono(request.getTelefono()); // ✅ Aquí SÍ va el teléfono
-                        cliente.setDocumento(request.getDocumento()); // Por si acaso
+                        cliente.setTelefono(request.getTelefono());
+                        cliente.setDocumento(request.getDocumento());
                         clienteService.guardar(cliente);
                     }
 
