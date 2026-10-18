@@ -17,5 +17,5 @@ public class LoginResponse {
     private Integer usuarioId;
     private Integer clienteId;
     private String nombre;
-    private Boolean verificado;
+    //private Boolean verificado;
 }

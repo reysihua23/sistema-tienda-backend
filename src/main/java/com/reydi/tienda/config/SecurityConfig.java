@@ -49,7 +49,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/productos/buscar").permitAll()
                         .requestMatchers("/api/productos/filtrar").permitAll()
                         .requestMatchers("/api/producto-imagenes/**").permitAll()
-                        //.requestMatchers("/uploads/**").permitAll()
+                        .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/usuarios").permitAll()
                         //.requestMatchers("/api/clientes").permitAll()
                         // ✅ 2. WebSocket (debe ir ANTES de anyRequest)
