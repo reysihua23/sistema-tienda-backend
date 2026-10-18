@@ -3,6 +3,7 @@ package com.reydi.tienda.controller;
 import com.reydi.tienda.dto.ProductoImagenDTO;
 import com.reydi.tienda.model.Producto;
 import com.reydi.tienda.model.ProductoImagen;
+import com.reydi.tienda.service.CloudinaryService;
 import com.reydi.tienda.service.ProductoImagenService;
 import com.reydi.tienda.service.ProductoService;
 import lombok.RequiredArgsConstructor;
@@ -28,6 +29,7 @@ public class ProductoImagenController {
     private final ProductoService productoService;
 
     private final String UPLOAD_DIR = "uploads/";
+    private final CloudinaryService cloudinaryService;
 
     // Extensiones permitidas
     private static final Set<String> ALLOWED_EXTENSIONS = Set.of("jpg", "jpeg", "png", "webp", "gif");
@@ -48,24 +50,19 @@ public class ProductoImagenController {
         Map<String, Object> response = new HashMap<>();
 
         try {
-            // VALIDACIÓN Archivo no vacío
             if (file == null || file.isEmpty()) {
                 response.put("success", false);
                 response.put("error", "El archivo está vacío");
                 return ResponseEntity.badRequest().body(response);
             }
 
-            // VALIDACIÓN Producto existe
-            Producto producto = productoService.buscarPorId(productoId)
-                    .orElse(null);
-
+            Producto producto = productoService.buscarPorId(productoId).orElse(null);
             if (producto == null) {
                 response.put("success", false);
                 response.put("error", "Producto no encontrado con ID: " + productoId);
                 return ResponseEntity.badRequest().body(response);
             }
 
-            // VALIDACIÓN Tipo de archivo válido
             String originalFilename = file.getOriginalFilename();
             String extension = "";
             if (originalFilename != null && originalFilename.contains(".")) {
@@ -78,39 +75,46 @@ public class ProductoImagenController {
                 return ResponseEntity.badRequest().body(response);
             }
 
-            // VALIDACIÓN Tamaño del archivo
             if (file.getSize() > MAX_FILE_SIZE) {
                 response.put("success", false);
                 response.put("error", "La imagen no puede superar los 5MB");
                 return ResponseEntity.badRequest().body(response);
             }
 
-            // VALIDACIÓN Verificar si ya hay imágenes principales
             if (principal) {
-                // Si ya hay una imagen principal, desmarcarla
                 productoImagenService.buscarImagenPrincipal(productoId).ifPresent(img -> {
                     img.setPrincipal(false);
                     productoImagenService.guardar(img);
                 });
             } else if (productoImagenService.buscarPorProducto(productoId).isEmpty()) {
-                // Si es la primera imagen y no se marcó como principal, forzar como principal
                 principal = true;
             }
 
-            // Crear directorio si no existe
-            Path uploadPath = Paths.get(UPLOAD_DIR);
-            if (!Files.exists(uploadPath)) {
-                Files.createDirectories(uploadPath);
+            // ================= LÓGICA DE GUARDADO =================
+            String urlImagen;
+            Path filePath = null;
+
+            try {
+                // 1. Intentamos subir a Cloudinary
+                urlImagen = cloudinaryService.subirImagen(file);
+                System.out.println("☁️ Imagen subida a Cloudinary: " + urlImagen);
+            } catch (Exception e) {
+                // 2. Si falla, guardamos en local (tu código anterior)
+                System.out.println("⚠️ Falló Cloudinary, guardando en local: " + e.getMessage());
+
+                Path uploadPath = Paths.get(UPLOAD_DIR);
+                if (!Files.exists(uploadPath)) {
+                    Files.createDirectories(uploadPath);
+                }
+
+                String fileName = UUID.randomUUID().toString() + "_" + System.currentTimeMillis() + "." + extension;
+                filePath = uploadPath.resolve(fileName);
+                Files.copy(file.getInputStream(), filePath);
+
+                urlImagen = "/uploads/" + fileName;
             }
 
-            // Generar nombre único
-            String fileName = UUID.randomUUID().toString() + "_" + System.currentTimeMillis() + "." + extension;
-            Path filePath = uploadPath.resolve(fileName);
-            Files.copy(file.getInputStream(), filePath);
-
-            String urlImagen = "/uploads/" + fileName;
-
-            // Guardar en base de datos SOLO si todo salió bien
+            // Guardar en base de datos
             ProductoImagen imagen = new ProductoImagen();
             imagen.setUrlImagen(urlImagen);
             imagen.setPrincipal(principal);
@@ -118,10 +122,8 @@ public class ProductoImagenController {
 
             ProductoImagen saved = productoImagenService.guardar(imagen);
 
-            // Verificar que se guardó correctamente
             if (saved == null || saved.getId() == null) {
-                // Si falló el guardado, eliminar el archivo físico
-                Files.deleteIfExists(filePath);
+                if (filePath != null) Files.deleteIfExists(filePath);
                 response.put("success", false);
                 response.put("error", "Error al guardar en base de datos");
                 return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
@@ -146,7 +148,7 @@ public class ProductoImagenController {
         }
     }
 
-    // SUBIR MÚLTIPLES IMÁGENES - CORREGIDO
+    // SUBIR MÚLTIPLES IMÁGENES
     @PostMapping("/upload-multiple")
     public ResponseEntity<?> subirMultiplesImagenes(
             @RequestParam("files") List<MultipartFile> files,
@@ -156,14 +158,8 @@ public class ProductoImagenController {
         List<Map<String, Object>> imagenesSubidas = new ArrayList<>();
         List<String> errores = new ArrayList<>();
 
-        System.out.println("=== SUBIENDO MÚLTIPLES IMÁGENES ===");
-        System.out.println("Producto ID: " + productoId);
-        System.out.println("Número de archivos recibidos: " + (files != null ? files.size() : 0));
-
         try {
-            // VALIDACIÓN: Producto existe
-            Producto producto = productoService.buscarPorId(productoId)
-                    .orElse(null);
+            Producto producto = productoService.buscarPorId(productoId).orElse(null);
 
             if (producto == null) {
                 response.put("success", false);
@@ -177,7 +173,6 @@ public class ProductoImagenController {
                 return ResponseEntity.badRequest().body(response);
             }
 
-            // Contar cuántas imágenes ya tiene el producto
             long imagenesExistentes = productoImagenService.buscarPorProducto(productoId).size();
             boolean primeraImagen = (imagenesExistentes == 0);
 
@@ -186,13 +181,11 @@ public class ProductoImagenController {
                 Map<String, Object> imgResult = new HashMap<>();
 
                 try {
-                    // Validar archivo
                     if (file == null || file.isEmpty()) {
                         errores.add("Archivo " + (i+1) + " está vacío");
                         continue;
                     }
 
-                    // Validar extensión
                     String originalFilename = file.getOriginalFilename();
                     String extension = "";
                     if (originalFilename != null && originalFilename.contains(".")) {
@@ -204,29 +197,37 @@ public class ProductoImagenController {
                         continue;
                     }
 
-                    // Validar tamaño
                     if (file.getSize() > MAX_FILE_SIZE) {
                         errores.add("Archivo " + (i+1) + " excede el tamaño máximo de 5MB");
                         continue;
                     }
 
-                    // La primera imagen del producto o la primera del lote es principal
                     boolean isPrincipal = primeraImagen && (i == 0);
 
-                    // Crear directorio
-                    Path uploadPath = Paths.get(UPLOAD_DIR);
-                    if (!Files.exists(uploadPath)) {
-                        Files.createDirectories(uploadPath);
+                    // ================= LÓGICA DE GUARDADO MÚLTIPLE =================
+                    String urlImagen;
+                    Path filePath = null;
+
+                    try {
+                        // 1. Intentamos subir a Cloudinary
+                        urlImagen = cloudinaryService.subirImagen(file);
+                        System.out.println("☁️ Imagen " + (i+1) + " subida a Cloudinary");
+                    } catch (Exception e) {
+                        // 2. Si falla, guardamos en local
+                        System.out.println("⚠️ Falló Cloudinary, guardando en local: " + e.getMessage());
+
+                        Path uploadPath = Paths.get(UPLOAD_DIR);
+                        if (!Files.exists(uploadPath)) {
+                            Files.createDirectories(uploadPath);
+                        }
+
+                        String fileName = UUID.randomUUID().toString() + "_" + System.currentTimeMillis() + "_" + i + "." + extension;
+                        filePath = uploadPath.resolve(fileName);
+                        Files.copy(file.getInputStream(), filePath);
+
+                        urlImagen = "/uploads/" + fileName;
                     }
 
-                    // Generar nombre único
-                    String fileName = UUID.randomUUID().toString() + "_" + System.currentTimeMillis() + "_" + i + "." + extension;
-                    Path filePath = uploadPath.resolve(fileName);
-                    Files.copy(file.getInputStream(), filePath);
-
-                    String urlImagen = "/uploads/" + fileName;
-
-                    // Guardar en BD
                     ProductoImagen imagen = new ProductoImagen();
                     imagen.setUrlImagen(urlImagen);
                     imagen.setPrincipal(isPrincipal);
@@ -239,9 +240,8 @@ public class ProductoImagenController {
                         imgResult.put("url", urlImagen);
                         imgResult.put("principal", isPrincipal);
                         imagenesSubidas.add(imgResult);
-                        System.out.println("Imagen " + (i+1) + " subida: " + urlImagen);
                     } else {
-                        Files.deleteIfExists(filePath);
+                        if (filePath != null) Files.deleteIfExists(filePath);
                         errores.add("Archivo " + (i+1) + " no se pudo guardar en BD");
                     }
 
@@ -250,7 +250,7 @@ public class ProductoImagenController {
                 }
             }
 
-            response.put("success", imagenesSubidas.size() > 0);
+            response.put("success", !imagenesSubidas.isEmpty());
             response.put("message", imagenesSubidas.size() + " imagen(es) subida(s) exitosamente");
             if (!errores.isEmpty()) {
                 response.put("errores", errores);
