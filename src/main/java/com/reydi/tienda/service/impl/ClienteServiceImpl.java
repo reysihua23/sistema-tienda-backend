@@ -4,6 +4,7 @@ import com.reydi.tienda.dto.ClienteDTO;
 import com.reydi.tienda.model.Cliente;
 import com.reydi.tienda.repository.ClienteRepository;
 import com.reydi.tienda.service.ClienteService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.util.List;
@@ -62,12 +63,21 @@ public class ClienteServiceImpl implements ClienteService {
                 .map(this::convertirAEntidad);
     }
 
+    /**
     @Override
     public void eliminar(Integer id) {
         if (!clienteRepository.existsById(id)) {
             throw new RuntimeException("Cliente no encontrado");
         }
         clienteRepository.deleteById(id);
+    }*/
+    @Override
+    @Transactional
+    public void eliminar(Integer id) {
+        Cliente cliente = clienteRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Cliente no encontrado"));
+        cliente.setActivo(false); // ✅ Soft Delete
+        clienteRepository.save(cliente);
     }
     // Agregar estos métodos al final de la clase
 

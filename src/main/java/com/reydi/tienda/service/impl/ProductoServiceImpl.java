@@ -117,7 +117,7 @@ public class ProductoServiceImpl implements ProductoService {
     /**
      * Elimina un producto
      * El stock se eliminará automáticamente por CASCADE en la base de datos
-     */
+
     @Override
     @Transactional
     public void eliminar(Integer id) {
@@ -125,12 +125,19 @@ public class ProductoServiceImpl implements ProductoService {
             throw new RuntimeException("Producto no encontrado con ID: " + id);
         }
         productoRepository.deleteById(id);
-        // ✅ Notificar eliminación
-        /**notificacionService.crearNotificacion(
-                recipientResolver.adminId(),
-                "PRODUCTO",
-                "🗑️ Producto eliminado: " + p.getNombre()
-        );*/
+    }*/
+    @Override
+    @Transactional
+    public void eliminar(Integer id) {
+        // Buscamos el producto (si no existe, lanza la excepción)
+        Producto producto = productoRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Producto no encontrado con ID: " + id));
+
+        // En lugar de borrarlo, lo desactivamos
+        producto.setActivo(false);
+
+        // Guardamos el cambio en la base de datos
+        productoRepository.save(producto);
     }
     // =========================================================
     // ✅ NUEVO MÉTODO PARA DESCUENTOS

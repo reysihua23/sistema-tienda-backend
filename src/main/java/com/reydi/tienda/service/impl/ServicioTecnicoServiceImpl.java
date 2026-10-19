@@ -128,6 +128,7 @@ public class ServicioTecnicoServiceImpl implements ServicioTecnicoService {
     // =========================================================
     // ✅ ELIMINAR
     // =========================================================
+    /**
     @Override
     @Transactional
     public void eliminar(Integer id) {
@@ -135,6 +136,34 @@ public class ServicioTecnicoServiceImpl implements ServicioTecnicoService {
                 .orElseThrow(() -> new RuntimeException("Servicio no encontrado"));
         repository.deleteById(id);
 
+        notificacionService.crearNotificacion(
+                recipientResolver.adminId(),
+                "SERVICIO",
+                "🗑️ Servicio eliminado #" + id,
+                id   // 👈 referenciaId
+        );
+
+        Integer clienteUsuarioId = recipientResolver.clienteUsuarioIdOrNull(servicio.getCliente());
+        if (clienteUsuarioId != null) {
+            notificacionService.crearNotificacion(
+                    clienteUsuarioId,
+                    "SERVICIO",
+                    "🗑️ Tu servicio #" + id + " fue eliminado",
+                    id
+            );
+        }
+    }*/
+    @Override
+    @Transactional
+    public void eliminar(Integer id) {
+        ServicioTecnico servicio = repository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Servicio no encontrado"));
+
+        // ✅ SOFT DELETE: En lugar de borrarlo, lo desactivamos
+        servicio.setActivo(false);
+        repository.save(servicio);
+
+        // El resto de tu lógica de notificaciones se mantiene igual
         notificacionService.crearNotificacion(
                 recipientResolver.adminId(),
                 "SERVICIO",

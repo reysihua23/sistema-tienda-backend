@@ -42,6 +42,9 @@ public class ServicioTecnico {
     @JoinColumn(name = "cliente_id", nullable = false)
     private Cliente cliente;
 
+    @Column(name = "activo")
+    private Boolean activo = true;
+
     // Relación con el técnico (usuario)
     @ManyToOne
     @JoinColumn(name = "tecnico_id")

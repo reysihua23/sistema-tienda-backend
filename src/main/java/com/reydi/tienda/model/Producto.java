@@ -32,6 +32,7 @@ public class Producto {
     @Column(name = "stock_minimo")
     private Integer stockMinimo;
 
+    @Column(name = "activo")
     private Boolean activo = true;
 
     // ✅ NUEVO CAMPO: CATEGORÍA
