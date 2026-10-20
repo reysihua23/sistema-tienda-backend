@@ -11,4 +11,6 @@ public interface ServicioTecnicoRepository extends JpaRepository<ServicioTecnico
     List<ServicioTecnico> findByEstado(String estado);
 
     List<ServicioTecnico> findByTecnicoId(Integer tecnicoId);
+
+    List<ServicioTecnico> findByActivoTrue();
 }

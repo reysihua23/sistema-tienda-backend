@@ -72,12 +72,13 @@ public class SecurityConfig {
                         .requestMatchers("/api/comprobantes/**").authenticated()
                         //.requestMatchers("/api/comprobante//pedido/{pedidoId}").authenticated()
 
+                        //.requestMatchers("/api/servicios-tecnicos/**").permitAll()
                         .requestMatchers("/api/servicios-tecnicos/**").authenticated()
-                        .requestMatchers(HttpMethod.GET, "/api/servicios-tecnicos/**").authenticated()
-                        .requestMatchers(HttpMethod.POST, "/api/servicios-tecnicos/**").authenticated()
-                        .requestMatchers(HttpMethod.PUT, "/api/servicios-tecnicos/**").authenticated()
-                        .requestMatchers(HttpMethod.PATCH, "/api/servicios-tecnicos/**").authenticated()
-                        .requestMatchers(HttpMethod.DELETE, "/api/servicios-tecnicos/**").authenticated()
+                        //.requestMatchers(HttpMethod.GET, "/api/servicios-tecnicos/**").authenticated()
+                        //.requestMatchers(HttpMethod.POST, "/api/servicios-tecnicos/**").authenticated()
+                        //.requestMatchers(HttpMethod.PUT, "/api/servicios-tecnicos/**").authenticated()
+                        //.requestMatchers(HttpMethod.PATCH, "/api/servicios-tecnicos/**").authenticated()
+                        //.requestMatchers(HttpMethod.DELETE, "/api/servicios-tecnicos/**").authenticated()
                         // Endpoints protegidos
                         .requestMatchers("/api/clientes/**").permitAll()
                         .requestMatchers("/api/usuarios/perfil").authenticated()

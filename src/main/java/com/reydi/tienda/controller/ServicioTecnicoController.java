@@ -262,6 +262,7 @@ public class ServicioTecnicoController {
                     .diagnostico(diagnostico)
                     .costo(costo)
                     .estado(estado)
+                    .activo(true)
                     .build();
 
             ServicioTecnico nuevoServicio = service.guardar(servicio);
@@ -308,6 +309,10 @@ public class ServicioTecnicoController {
             }
             if (request.containsKey("estado")) {
                 servicioExistente.setEstado(EstadoServicio.valueOf((String) request.get("estado")));
+            }
+            if (request.containsKey("activo")) {
+                Boolean activoBoolean = (Boolean) request.get("activo");
+                servicioExistente.setActivo(activoBoolean);
             }
 
             ServicioTecnico actualizado = service.actualizar(servicioExistente);
@@ -404,6 +409,7 @@ public class ServicioTecnicoController {
         dto.setCosto(servicio.getCosto());
         dto.setEstado(servicio.getEstado().name());
         dto.setFecha(servicio.getFecha());
+        dto.setActivo(servicio.getActivo() != null ? servicio.getActivo() : true);
 
         if (servicio.getCliente() != null) {
             dto.setClienteId(servicio.getCliente().getId());

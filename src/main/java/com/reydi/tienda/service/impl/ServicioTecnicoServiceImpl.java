@@ -14,6 +14,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -22,10 +23,12 @@ public class ServicioTecnicoServiceImpl implements ServicioTecnicoService {
     private final ServicioTecnicoRepository repository;
     private final NotificacionService notificacionService;
     private final NotificationRecipientResolver recipientResolver;
+    private final ServicioTecnicoRepository servicioTecnicoRepository;
 
     @Override
     public List<ServicioTecnico> listarTodos() {
-        return repository.findAll();
+        // ✅ Quitamos el .filter() para traer TODO (activos e inactivos)
+        return servicioTecnicoRepository.findAll();
     }
 
     @Override
@@ -153,6 +156,7 @@ public class ServicioTecnicoServiceImpl implements ServicioTecnicoService {
             );
         }
     }*/
+
     @Override
     @Transactional
     public void eliminar(Integer id) {

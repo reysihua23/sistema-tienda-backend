@@ -13,6 +13,7 @@ public class ServicioTecnicoResponseDTO {
     private BigDecimal costo;
     private String estado;
     private LocalDateTime fecha;
+    private boolean activo;
 
     // Información del técnico
     private Integer tecnicoId;

@@ -42,7 +42,7 @@ public class ServicioTecnico {
     @JoinColumn(name = "cliente_id", nullable = false)
     private Cliente cliente;
 
-    @Column(name = "activo")
+    @Column(nullable = false)
     private Boolean activo = true;
 
     // Relación con el técnico (usuario)
